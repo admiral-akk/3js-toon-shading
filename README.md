@@ -10,3 +10,4 @@ Credits
 Learning Resources
 
 - Three.js: https://threejs-journey.com/
+- Basic Toon Shader: https://www.maya-ndljk.com/blog/threejs-basic-toon-shader

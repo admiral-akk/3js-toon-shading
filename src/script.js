@@ -14,6 +14,8 @@ import loadingVertexShader from "./shaders/loading/vertex.glsl";
 import loadingFragmentShader from "./shaders/loading/fragment.glsl";
 import matcapVertexShader from "./shaders/matcap/vertex.glsl";
 import matcapFragmentShader from "./shaders/matcap/fragment.glsl";
+import toonVertexShader from "./shaders/toon/vertex.glsl";
+import toonFragmentShader from "./shaders/toon/fragment.glsl";
 
 /**
  * Helpers
@@ -25,14 +27,17 @@ Math.clamp = (num, min, max) => Math.max(min, Math.min(num, max));
  */
 const container = document.querySelector("div.container");
 const canvasContainer = document.querySelector("div.relative");
-const ui = document.querySelector("div.ui");
+const ui = document.querySelector("div.overlay");
 const canvas = document.querySelector("canvas.webgl");
 const aspectRatio = 16 / 9;
 const camera = new THREE.PerspectiveCamera(75, aspectRatio);
-const renderer = new THREE.WebGLRenderer({ canvas });
+camera.near = 0.001;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
 const listener = new THREE.AudioListener();
 camera.add(listener);
 renderer.setClearColor("#201919");
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
@@ -255,12 +260,61 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enabled = true;
 
 /**
+ * Materials
+ */
+
+const toonMaterial = new THREE.ShaderMaterial({
+  lights: true,
+  vertexShader: toonVertexShader,
+  fragmentShader: toonFragmentShader,
+  uniforms: {
+    ...THREE.UniformsLib.lights,
+    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uShadowThreshold: new THREE.Uniform(0.1),
+    uHalfLitThreshold: new THREE.Uniform(0.5),
+  },
+});
+
+/**
  * Debug
  */
 
-const debugObject = { timeSpeed: 1.0 };
+const debugObject = {
+  timeSpeed: 1.0,
+  shadowColor: new THREE.Color(0x0f0f0f),
+  halfLitColor: new THREE.Color(0x8f8f8f),
+  litColor: new THREE.Color(0xefefef),
+  shadowThreshold: 0.0,
+  halfLitThreshold: 0.5,
+};
+
+const updateToonMaterial = () => {
+  toonMaterial.uniforms.uShadowColor.value = debugObject.shadowColor;
+  toonMaterial.uniforms.uHalfLitColor.value = debugObject.halfLitColor;
+  toonMaterial.uniforms.uLitColor.value = debugObject.litColor;
+  toonMaterial.uniforms.uShadowThreshold.value = debugObject.shadowThreshold;
+  toonMaterial.uniforms.uHalfLitThreshold.value = debugObject.halfLitThreshold;
+};
+updateToonMaterial();
 const gui = new GUI();
 gui.add(debugObject, "timeSpeed").min(0).max(3).step(0.1);
+gui.addColor(debugObject, "shadowColor").onChange(updateToonMaterial);
+gui.addColor(debugObject, "halfLitColor").onChange(updateToonMaterial);
+gui.addColor(debugObject, "litColor").onChange(updateToonMaterial);
+gui
+  .add(debugObject, "shadowThreshold")
+  .min(0)
+  .max(1)
+  .step(0.01)
+  .onChange(updateToonMaterial);
+gui
+  .add(debugObject, "halfLitThreshold")
+  .min(0)
+  .max(1)
+  .step(0.01)
+  .onChange(updateToonMaterial);
 
 /**
  * Loading overlay
@@ -342,23 +396,65 @@ loadFont("helvetiker_regular.typeface");
 /**
  *  Box
  */
-const boxG = new THREE.BoxGeometry();
+const boxG = new THREE.SphereGeometry(1, 200, 200);
 const boxM = new THREE.ShaderMaterial({
-  vertexShader: matcapVertexShader,
-  fragmentShader: matcapFragmentShader,
+  lights: true,
+  vertexShader: toonVertexShader,
+  fragmentShader: toonFragmentShader,
   uniforms: {
-    uMatcap: {
-      type: "sampler2D",
-      value: textures.get("matcap01"),
-    },
+    ...THREE.UniformsLib.lights,
+    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uShadowThreshold: new THREE.Uniform(0.1),
+    uHalfLitThreshold: new THREE.Uniform(0.5),
   },
 });
-const boxMesh = new THREE.Mesh(boxG, boxM);
+const lambert = new THREE.MeshLambertMaterial({});
+const boxMesh = new THREE.Mesh(boxG, toonMaterial);
 scene.add(boxMesh);
+boxMesh.castShadow = true;
+boxMesh.receiveShadow = true;
+boxMesh.material.shading = THREE.SmoothShading;
 
 const rotateBox = (time) => {
   boxMesh.setRotationFromEuler(new THREE.Euler(0, time, 0));
 };
+
+const plane = new THREE.PlaneGeometry(10, 10);
+const planeMesh = new THREE.Mesh(plane, boxM);
+planeMesh.position.y = -2;
+planeMesh.lookAt(boxMesh.position);
+scene.add(planeMesh);
+planeMesh.castShadow = true;
+planeMesh.receiveShadow = true;
+
+/**
+ * Light
+ */
+
+const makeDirectionalLight = (targetDirection = THREE.Object3D.DEFAULT_UP) => {
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 5);
+
+  directionalLight.position.x = -targetDirection.x;
+  directionalLight.position.y = -targetDirection.y;
+  directionalLight.position.z = -targetDirection.z;
+
+  directionalLight.castShadow = true;
+  directionalLight.shadow.bias = -0.01;
+  directionalLight.shadow.mapSize.width = 1 << 10;
+  directionalLight.shadow.mapSize.height = 1 << 10;
+  directionalLight.shadow.camera.near = 0; // same as the camera
+  directionalLight.shadow.camera.far = 100; // same as the camera
+  directionalLight.shadow.camera.top = 1;
+  directionalLight.shadow.camera.bottom = -1;
+  directionalLight.shadow.camera.left = 1;
+  directionalLight.shadow.camera.right = -1;
+  scene.add(directionalLight);
+  return directionalLight;
+};
+
+makeDirectionalLight(new THREE.Vector3(-1, -1, 0));
 
 /**
  * Animation
