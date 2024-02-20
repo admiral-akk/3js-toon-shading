@@ -16,6 +16,7 @@ import matcapVertexShader from "./shaders/matcap/vertex.glsl";
 import matcapFragmentShader from "./shaders/matcap/fragment.glsl";
 import toonVertexShader from "./shaders/toon/vertex.glsl";
 import toonFragmentShader from "./shaders/toon/fragment.glsl";
+import mapData from "./data/map.json";
 
 /**
  * Helpers
@@ -61,6 +62,18 @@ const gltfLoader = new GLTFLoader(loadingManager);
 const fontLoader = new FontLoader(loadingManager);
 gltfLoader.setDRACOLoader(dracoLoader);
 dracoLoader.setDecoderPath("./draco/gltf/");
+
+/**
+ * Data
+ */
+
+const jsonData = new Map();
+
+const loadJson = (name) => {
+  const texture = textureLoader.load(`./texture/${name}.png`);
+  textures.set(name, texture);
+  return texture;
+};
 
 /**
  * Textures
@@ -317,6 +330,34 @@ gui
   .onChange(updateToonMaterial);
 
 /**
+ * Marching Cubes
+ */
+
+const generatePillar = (x, z, height) => {
+  const boxGeometry = new THREE.ConeGeometry(1 / 2, height, 32);
+  const box = new THREE.Mesh(boxGeometry, toonMaterial);
+  box.position.x = x;
+  box.position.y = height / 2 - 2;
+  box.position.z = z;
+  box.castShadow = true;
+  box.receiveShadow = true;
+  scene.add(box);
+};
+
+const generateMap = (map) => {
+  for (let x = 0; x < map.width; x++) {
+    for (let z = 0; z < map.depth; z++) {
+      generatePillar(
+        x - map.width / 2,
+        z - map.depth / 2,
+        map.heights[x][z] + 1
+      );
+    }
+  }
+};
+generateMap(mapData);
+
+/**
  * Loading overlay
  */
 const loadingShader = {
@@ -397,20 +438,6 @@ loadFont("helvetiker_regular.typeface");
  *  Box
  */
 const boxG = new THREE.SphereGeometry(1, 200, 200);
-const boxM = new THREE.ShaderMaterial({
-  lights: true,
-  vertexShader: toonVertexShader,
-  fragmentShader: toonFragmentShader,
-  uniforms: {
-    ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
-    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
-    uShadowThreshold: new THREE.Uniform(0.1),
-    uHalfLitThreshold: new THREE.Uniform(0.5),
-  },
-});
-const lambert = new THREE.MeshLambertMaterial({});
 const boxMesh = new THREE.Mesh(boxG, toonMaterial);
 scene.add(boxMesh);
 boxMesh.castShadow = true;
@@ -422,7 +449,9 @@ const rotateBox = (time) => {
 };
 
 const plane = new THREE.PlaneGeometry(10, 10);
-const planeMesh = new THREE.Mesh(plane, boxM);
+const planeMesh = new THREE.Mesh(plane, toonMaterial);
+planeMesh.visible = false;
+boxMesh.visible = false;
 planeMesh.position.y = -2;
 planeMesh.lookAt(boxMesh.position);
 scene.add(planeMesh);
@@ -441,20 +470,20 @@ const makeDirectionalLight = (targetDirection = THREE.Object3D.DEFAULT_UP) => {
   directionalLight.position.z = -targetDirection.z;
 
   directionalLight.castShadow = true;
-  directionalLight.shadow.bias = -0.01;
-  directionalLight.shadow.mapSize.width = 1 << 10;
-  directionalLight.shadow.mapSize.height = 1 << 10;
+  directionalLight.shadow.bias = -0.001;
+  directionalLight.shadow.mapSize.width = 1 << 12;
+  directionalLight.shadow.mapSize.height = 1 << 12;
   directionalLight.shadow.camera.near = 0; // same as the camera
-  directionalLight.shadow.camera.far = 100; // same as the camera
-  directionalLight.shadow.camera.top = 1;
-  directionalLight.shadow.camera.bottom = -1;
-  directionalLight.shadow.camera.left = 1;
-  directionalLight.shadow.camera.right = -1;
+  directionalLight.shadow.camera.far = 40; // same as the camera
+  directionalLight.shadow.camera.top = 10;
+  directionalLight.shadow.camera.bottom = -10;
+  directionalLight.shadow.camera.left = 10;
+  directionalLight.shadow.camera.right = -10;
   scene.add(directionalLight);
   return directionalLight;
 };
 
-makeDirectionalLight(new THREE.Vector3(-1, -1, 0));
+makeDirectionalLight(new THREE.Vector3(-10, -10, -10));
 
 /**
  * Animation
