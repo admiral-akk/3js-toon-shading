@@ -301,6 +301,8 @@ const debugObject = {
   litColor: new THREE.Color(0xefefef),
   shadowThreshold: 0.0,
   halfLitThreshold: 0.5,
+  width: 10,
+  depth: 10,
 };
 
 const updateToonMaterial = () => {
@@ -333,6 +335,12 @@ gui
  * Marching Cubes
  */
 
+const gameMap = JSON.parse(JSON.stringify(mapData));
+
+const mapMesh = {
+  meshes: [],
+};
+
 const generatePillar = (x, z, height) => {
   const boxGeometry = new THREE.ConeGeometry(1 / 2, height, 32);
   const box = new THREE.Mesh(boxGeometry, toonMaterial);
@@ -342,9 +350,17 @@ const generatePillar = (x, z, height) => {
   box.castShadow = true;
   box.receiveShadow = true;
   scene.add(box);
+  mapMesh.meshes.push(box);
 };
 
-const generateMap = (map) => {
+const regenerateMap = (map) => {
+  mapMesh.meshes.forEach((v, _) => {
+    scene.remove(v);
+  });
+  mapMesh.meshes = [];
+  map.depth = debugObject.depth;
+  map.width = debugObject.width;
+
   for (let x = 0; x < map.width; x++) {
     for (let z = 0; z < map.depth; z++) {
       generatePillar(
@@ -355,7 +371,31 @@ const generateMap = (map) => {
     }
   }
 };
-generateMap(mapData);
+
+const updateMap = () => {
+  gameMap.width = debugObject.width;
+  gameMap.depth = debugObject.depth;
+  while (gameMap.heights.length > gameMap.width) {
+    gameMap.heights.pop();
+  }
+  while (gameMap.heights.length < gameMap.width) {
+    gameMap.heights.push([]);
+  }
+
+  gameMap.heights.forEach((h, _) => {
+    while (h.length > gameMap.depth) {
+      h.pop();
+    }
+    while (h.length < gameMap.depth) {
+      h.push(0);
+    }
+  });
+  regenerateMap(gameMap);
+};
+
+updateMap();
+gui.add(debugObject, "width").min(2).max(30).step(1).onChange(updateMap);
+gui.add(debugObject, "depth").min(2).max(30).step(1).onChange(updateMap);
 
 /**
  * Loading overlay
