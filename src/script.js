@@ -362,6 +362,89 @@ controls.enabled = false;
 /**
  * Materials
  */
+const materials = new Set();
+const debugUUIDs = new Set();
+
+const updateMaterialSet = () => {
+  scene.traverse(function (object) {
+    if (object.material) materials.add(object.material);
+  });
+
+  materials.forEach((material) => {
+    const { uuid, uniforms } = material;
+    if (debugUUIDs.has(uuid)) {
+      return;
+    }
+    debugUUIDs.add(material.uuid);
+
+    // Update debug menu
+    for (const property in uniforms) {
+      const name = `${property}`;
+      const value = uniforms[name].value;
+      // We mark all of our uniform properties with 'u' to start.
+      if (`${property}`[0] === "u") {
+        const controller = gui.controllers.find((c) => c._name === name);
+        if (controller) {
+          // already added, link it.
+          const controller = gui.controllers.find((c) => {
+            return c._name === name;
+          });
+          if (controller) {
+            const oldOnChange = controller._onChange;
+            controller.onChange((newColor) => {
+              oldOnChange(newColor);
+              material.uniforms[name].value = newColor;
+            });
+          }
+        } else {
+          if (value.isColor) {
+            debugObject[name] = value;
+            gui.addColor(debugObject, name).onChange((newColor) => {
+              material.uniforms[name].value = newColor;
+            });
+          } else if (typeof value === "number") {
+            debugObject[name] = value;
+            gui
+              .add(debugObject, name)
+              .onChange((newValue) => {
+                material.uniforms[name].value = newValue;
+              })
+              .min(0)
+              .max(1)
+              .step(0.05);
+          } else if (typeof value === "boolean") {
+            debugObject[name] = value;
+            gui
+              .add(debugObject, name)
+              .onChange((newValue) => {
+                material.uniforms[name].value = newValue;
+              })
+              .min(0)
+              .max(1)
+              .step(0.05);
+          } else if (
+            value.length === 2 ||
+            value.length === 3 ||
+            value.length === 4
+          ) {
+            debugObject[name] = value;
+            gui
+              .add(debugObject, name)
+              .onChange((newValue) => {
+                material.uniforms[name].value = newValue;
+              })
+              .min(0)
+              .max(1)
+              .step(0.05);
+          }
+        }
+      }
+
+      // Add time uniform
+      material.uniforms.uTime = new THREE.Uniform(0.0);
+    }
+  });
+};
 
 const toonMaterial = new THREE.ShaderMaterial({
   lights: true,
@@ -369,9 +452,9 @@ const toonMaterial = new THREE.ShaderMaterial({
   fragmentShader: toonFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
-    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uShadowColor: new THREE.Uniform(new THREE.Color(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
     uShadowThreshold: new THREE.Uniform(0.1),
     uHalfLitThreshold: new THREE.Uniform(0.5),
     uIsHovered: new THREE.Uniform(false),
@@ -383,9 +466,9 @@ const bushMaterial = new THREE.ShaderMaterial({
   fragmentShader: toonFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
-    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uShadowColor: new THREE.Uniform(new THREE.Color(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
     uShadowThreshold: new THREE.Uniform(0.1),
     uHalfLitThreshold: new THREE.Uniform(0.5),
     uIsHovered: new THREE.Uniform(false),
@@ -397,9 +480,9 @@ const hoveredToonMaterial = new THREE.ShaderMaterial({
   fragmentShader: toonFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
-    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uShadowColor: new THREE.Uniform(new THREE.Color(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
     uShadowThreshold: new THREE.Uniform(0.1),
     uHalfLitThreshold: new THREE.Uniform(0.5),
     uIsHovered: new THREE.Uniform(true),
@@ -412,16 +495,15 @@ const waterMaterial = new THREE.ShaderMaterial({
   transparent: true,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
-    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uShadowColor: new THREE.Uniform(new THREE.Color(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
     uWaterColor: new THREE.Uniform(new THREE.Color(0x0000ef)),
     uShadowThreshold: new THREE.Uniform(0.1),
     uHalfLitThreshold: new THREE.Uniform(0.5),
     uIsHovered: new THREE.Uniform(false),
-    uTime: new THREE.Uniform(0.0),
-    uWaveHeight: new THREE.Uniform(0.0),
-    uWaveFrequency: new THREE.Uniform(0.0),
+    uWaveHeight: new THREE.Uniform(0.15),
+    uWaveFrequency: new THREE.Uniform(0.1),
   },
 });
 const groundMaterial = new THREE.ShaderMaterial({
@@ -430,9 +512,9 @@ const groundMaterial = new THREE.ShaderMaterial({
   fragmentShader: groundFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
-    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uShadowColor: new THREE.Uniform(new THREE.Color(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
     uGroundColor: new THREE.Uniform(new THREE.Color(0xefefef)),
     uShadowThreshold: new THREE.Uniform(0.1),
     uHalfLitThreshold: new THREE.Uniform(0.5),
@@ -446,62 +528,10 @@ const groundMaterial = new THREE.ShaderMaterial({
 
 const debugObject = {
   timeSpeed: 1.0,
-  shadowColor: new THREE.Color(0xcfcfcf),
-  halfLitColor: new THREE.Color(0xdfdfdf),
-  litColor: new THREE.Color(0xefefef),
-  waterColor: new THREE.Color(0x0000ef),
-  groundColor: new THREE.Color(0xffffff),
-  shadowThreshold: 0.0,
-  halfLitThreshold: 0.5,
-  waveHeight: 0.15,
-  waveFrequency: 0.1,
 };
 
-const updateMaterials = () => {
-  toonMaterial.uniforms.uShadowColor.value = debugObject.shadowColor;
-  toonMaterial.uniforms.uHalfLitColor.value = debugObject.halfLitColor;
-  toonMaterial.uniforms.uLitColor.value = debugObject.litColor;
-  toonMaterial.uniforms.uShadowThreshold.value = debugObject.shadowThreshold;
-  toonMaterial.uniforms.uHalfLitThreshold.value = debugObject.halfLitThreshold;
-  waterMaterial.uniforms.uWaterColor.value = debugObject.waterColor;
-  waterMaterial.uniforms.uWaveFrequency.value = debugObject.waveFrequency;
-  waterMaterial.uniforms.uWaveHeight.value = debugObject.waveHeight;
-  waterMaterial.uniforms.uWaterColor.value = debugObject.waterColor;
-  groundMaterial.uniforms.uGroundColor.value = debugObject.groundColor;
-};
-
-updateMaterials();
 const gui = new GUI();
 gui.add(debugObject, "timeSpeed").min(0).max(3).step(0.1);
-gui.addColor(debugObject, "shadowColor").onChange(updateMaterials);
-gui.addColor(debugObject, "halfLitColor").onChange(updateMaterials);
-gui.addColor(debugObject, "litColor").onChange(updateMaterials);
-gui.addColor(debugObject, "waterColor").onChange(updateMaterials);
-gui.addColor(debugObject, "groundColor").onChange(updateMaterials);
-gui
-  .add(debugObject, "waveHeight")
-  .min(0)
-  .max(0.4)
-  .step(0.01)
-  .onChange(updateMaterials);
-gui
-  .add(debugObject, "waveFrequency")
-  .min(0.1)
-  .max(0.4)
-  .step(0.01)
-  .onChange(updateMaterials);
-gui
-  .add(debugObject, "shadowThreshold")
-  .min(0)
-  .max(1)
-  .step(0.01)
-  .onChange(updateMaterials);
-gui
-  .add(debugObject, "halfLitThreshold")
-  .min(0)
-  .max(1)
-  .step(0.01)
-  .onChange(updateMaterials);
 
 /**
  * Map Tracker
@@ -829,10 +859,15 @@ const clock = new THREE.Clock();
 const tick = () => {
   stats.begin();
   updateHighlight();
+  updateMaterialSet();
   if (timeTracker.enabled) {
     timeTracker.elapsedTime =
       timeTracker.elapsedTime + debugObject.timeSpeed * clock.getDelta();
-    waterMaterial.uniforms.uTime.value = timeTracker.elapsedTime;
+    materials.forEach((material) => {
+      if (material.uniforms && material.uniforms.uTime) {
+        material.uniforms.uTime.value = timeTracker.elapsedTime;
+      }
+    });
   }
   // update controls
   controls.update();
