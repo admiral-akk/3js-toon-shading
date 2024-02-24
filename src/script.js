@@ -302,7 +302,7 @@ window.addEventListener(
  * Setup camera
  */
 camera.position.x = 5;
-camera.position.y = 5;
+camera.position.y = 7;
 camera.position.z = 5;
 scene.add(camera);
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -347,8 +347,8 @@ const hoveredToonMaterial = new THREE.ShaderMaterial({
 
 const debugObject = {
   timeSpeed: 1.0,
-  shadowColor: new THREE.Color(0x0f0f0f),
-  halfLitColor: new THREE.Color(0x8f8f8f),
+  shadowColor: new THREE.Color(0xcfcfcf),
+  halfLitColor: new THREE.Color(0xdfdfdf),
   litColor: new THREE.Color(0xefefef),
   shadowThreshold: 0.0,
   halfLitThreshold: 0.5,
