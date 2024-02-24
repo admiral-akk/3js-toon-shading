@@ -16,6 +16,10 @@ import matcapVertexShader from "./shaders/matcap/vertex.glsl";
 import matcapFragmentShader from "./shaders/matcap/fragment.glsl";
 import toonVertexShader from "./shaders/toon/vertex.glsl";
 import toonFragmentShader from "./shaders/toon/fragment.glsl";
+import waterVertexShader from "./shaders/water/vertex.glsl";
+import waterFragmentShader from "./shaders/water/fragment.glsl";
+import groundVertexShader from "./shaders/ground/vertex.glsl";
+import groundFragmentShader from "./shaders/ground/fragment.glsl";
 import mapData from "./data/map.json";
 
 /**
@@ -40,7 +44,7 @@ const canvas = document.querySelector("canvas.webgl");
 const aspectRatio = 16 / 9;
 const camera = new THREE.PerspectiveCamera(75, aspectRatio);
 camera.near = 0.001;
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 const listener = new THREE.AudioListener();
 camera.add(listener);
 renderer.setClearColor("#201919");
@@ -340,6 +344,37 @@ const hoveredToonMaterial = new THREE.ShaderMaterial({
     uIsHovered: new THREE.Uniform(true),
   },
 });
+const waterMaterial = new THREE.ShaderMaterial({
+  lights: true,
+  vertexShader: waterVertexShader,
+  fragmentShader: waterFragmentShader,
+  transparent: true,
+  uniforms: {
+    ...THREE.UniformsLib.lights,
+    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uWaterColor: new THREE.Uniform(new THREE.Color(0x0000ef)),
+    uShadowThreshold: new THREE.Uniform(0.1),
+    uHalfLitThreshold: new THREE.Uniform(0.5),
+    uIsHovered: new THREE.Uniform(false),
+  },
+});
+const groundMaterial = new THREE.ShaderMaterial({
+  lights: true,
+  vertexShader: groundVertexShader,
+  fragmentShader: groundFragmentShader,
+  uniforms: {
+    ...THREE.UniformsLib.lights,
+    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uGroundColor: new THREE.Uniform(new THREE.Color(0xefefef)),
+    uShadowThreshold: new THREE.Uniform(0.1),
+    uHalfLitThreshold: new THREE.Uniform(0.5),
+    uIsHovered: new THREE.Uniform(false),
+  },
+});
 
 /**
  * Debug
@@ -350,43 +385,48 @@ const debugObject = {
   shadowColor: new THREE.Color(0xcfcfcf),
   halfLitColor: new THREE.Color(0xdfdfdf),
   litColor: new THREE.Color(0xefefef),
+  waterColor: new THREE.Color(0x0000ef),
+  groundColor: new THREE.Color(0xffffff),
   shadowThreshold: 0.0,
   halfLitThreshold: 0.5,
   width: 10,
   depth: 10,
 };
 
-const updateToonMaterial = () => {
+const updateMaterials = () => {
   toonMaterial.uniforms.uShadowColor.value = debugObject.shadowColor;
   toonMaterial.uniforms.uHalfLitColor.value = debugObject.halfLitColor;
   toonMaterial.uniforms.uLitColor.value = debugObject.litColor;
   toonMaterial.uniforms.uShadowThreshold.value = debugObject.shadowThreshold;
   toonMaterial.uniforms.uHalfLitThreshold.value = debugObject.halfLitThreshold;
+  waterMaterial.uniforms.uWaterColor.value = debugObject.waterColor;
+  groundMaterial.uniforms.uGroundColor.value = debugObject.groundColor;
 };
-updateToonMaterial();
+
+updateMaterials();
 const gui = new GUI();
 gui.add(debugObject, "timeSpeed").min(0).max(3).step(0.1);
-gui.addColor(debugObject, "shadowColor").onChange(updateToonMaterial);
-gui.addColor(debugObject, "halfLitColor").onChange(updateToonMaterial);
-gui.addColor(debugObject, "litColor").onChange(updateToonMaterial);
+gui.addColor(debugObject, "shadowColor").onChange(updateMaterials);
+gui.addColor(debugObject, "halfLitColor").onChange(updateMaterials);
+gui.addColor(debugObject, "litColor").onChange(updateMaterials);
+gui.addColor(debugObject, "waterColor").onChange(updateMaterials);
+gui.addColor(debugObject, "groundColor").onChange(updateMaterials);
 gui
   .add(debugObject, "shadowThreshold")
   .min(0)
   .max(1)
   .step(0.01)
-  .onChange(updateToonMaterial);
+  .onChange(updateMaterials);
 gui
   .add(debugObject, "halfLitThreshold")
   .min(0)
   .max(1)
   .step(0.01)
-  .onChange(updateToonMaterial);
+  .onChange(updateMaterials);
 
 /**
- * Marching Cubes
+ * Map Tracker
  */
-
-const gameMapData = JSON.parse(JSON.stringify(mapData));
 
 const gameMap = {
   data: JSON.parse(JSON.stringify(mapData)),
@@ -519,6 +559,25 @@ const removeCube = () => {
 };
 
 /**
+ * Water
+ */
+const waterPlaneG = new THREE.PlaneGeometry(1000, 1000);
+const waterPlane = new THREE.Mesh(waterPlaneG, waterMaterial);
+waterPlane.lookAt(new THREE.Vector3(0, 1, 0));
+waterPlane.position.y = -1.5;
+waterPlane.castShadow = false;
+waterPlane.receiveShadow = false;
+scene.add(waterPlane);
+
+const groundPlaneG = new THREE.PlaneGeometry(1000, 1000);
+const groundPlane = new THREE.Mesh(groundPlaneG, groundMaterial);
+groundPlane.lookAt(new THREE.Vector3(0, 1, 0));
+groundPlane.position.y = -2.0;
+groundPlane.castShadow = false;
+groundPlane.receiveShadow = false;
+scene.add(groundPlane);
+
+/**
  * Loading overlay
  */
 const loadingShader = {
@@ -644,7 +703,7 @@ const makeDirectionalLight = (targetDirection = THREE.Object3D.DEFAULT_UP) => {
   return directionalLight;
 };
 
-makeDirectionalLight(new THREE.Vector3(-10, -10, 3));
+makeDirectionalLight(new THREE.Vector3(-10, -10, 5));
 
 /**
  * Animation
