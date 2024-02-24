@@ -10,6 +10,7 @@ uniform vec3 uHalfLitColor;
 uniform vec3 uLitColor;
 uniform float uShadowThreshold;
 uniform float uHalfLitThreshold;
+uniform bool uIsHovered;
 
 // Variables described here: https://www.khronos.org/opengl/wiki/Built-in_Variable_(GLSL)
 void main()
@@ -32,5 +33,9 @@ void main()
   vec3 color = uShadowColor * isShadow 
    + uHalfLitColor * isHalfLit 
    + uLitColor * isLit;
-  gl_FragColor = vec4(color, 1.0);
+   if (uIsHovered) {
+    gl_FragColor = vec4(1.0,0.,0., 1.0);
+   } else {
+    gl_FragColor = vec4(color, 1.0);
+   }
 }

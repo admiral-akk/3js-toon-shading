@@ -23,6 +23,13 @@ import mapData from "./data/map.json";
  */
 Math.clamp = (num, min, max) => Math.max(min, Math.min(num, max));
 
+const partition = (array, filterFn) => {
+  const pass = [];
+  const fail = [];
+  array.forEach((e, idx, arr) => (filterFn(e, idx, arr) ? pass : fail).push(e));
+  return [pass, fail];
+};
+
 /**
  * Core objects
  */
@@ -203,6 +210,16 @@ const updateSize = () => {
 updateSize();
 
 /**
+ * Input Manager
+ */
+
+const inputManager = {
+  mousePos: null,
+  mouseButtons: null,
+  mouseButtonState: null,
+};
+
+/**
  * Mouse tracking
  */
 
@@ -246,7 +263,16 @@ const universalEventHandler = (event) => {
       if (event.target.className !== "webgl") {
         return;
       }
-      const pos = mousePos(event);
+      console.log(event);
+      inputManager.mousePos = mousePos(event);
+      inputManager.mouseButtons = event.buttons;
+      inputManager.mouseButtonState = event.type;
+      if (event.buttons === 1) {
+        addCube();
+      }
+      if (event.buttons === 2) {
+        removeCube();
+      }
       break;
     default:
       break;
@@ -262,15 +288,25 @@ for (const key in canvas) {
   }
 }
 
+// Capture right clicks.
+window.addEventListener(
+  "contextmenu",
+  (ev) => {
+    ev.preventDefault();
+    return false;
+  },
+  false
+);
+
 /**
  * Setup camera
  */
-camera.position.x = 1;
-camera.position.y = 1;
-camera.position.z = 1;
+camera.position.x = 5;
+camera.position.y = 5;
+camera.position.z = 5;
 scene.add(camera);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enabled = true;
+controls.enabled = false;
 
 /**
  * Materials
@@ -287,6 +323,21 @@ const toonMaterial = new THREE.ShaderMaterial({
     uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
     uShadowThreshold: new THREE.Uniform(0.1),
     uHalfLitThreshold: new THREE.Uniform(0.5),
+    uIsHovered: new THREE.Uniform(false),
+  },
+});
+const hoveredToonMaterial = new THREE.ShaderMaterial({
+  lights: true,
+  vertexShader: toonVertexShader,
+  fragmentShader: toonFragmentShader,
+  uniforms: {
+    ...THREE.UniformsLib.lights,
+    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uShadowThreshold: new THREE.Uniform(0.1),
+    uHalfLitThreshold: new THREE.Uniform(0.5),
+    uIsHovered: new THREE.Uniform(true),
   },
 });
 
@@ -335,67 +386,137 @@ gui
  * Marching Cubes
  */
 
-const gameMap = JSON.parse(JSON.stringify(mapData));
+const gameMapData = JSON.parse(JSON.stringify(mapData));
 
-const mapMesh = {
-  meshes: [],
+const gameMap = {
+  data: JSON.parse(JSON.stringify(mapData)),
+  graphics: {
+    tiles: [],
+  },
 };
 
-const generatePillar = (x, z, height) => {
-  const boxGeometry = new THREE.ConeGeometry(1 / 2, height, 32);
+const generatePillar = (x, y, height) => {
+  const boxGeometry = new THREE.BoxGeometry(0.9, height, 0.9);
   const box = new THREE.Mesh(boxGeometry, toonMaterial);
   box.position.x = x;
   box.position.y = height / 2 - 2;
-  box.position.z = z;
+  box.position.z = y;
   box.castShadow = true;
   box.receiveShadow = true;
+  box.x = x;
+  box.y = y;
+  box.height = height;
   scene.add(box);
-  mapMesh.meshes.push(box);
+  return box;
 };
 
 const regenerateMap = (map) => {
-  mapMesh.meshes.forEach((v, _) => {
+  // Clear any removed tiles
+  map.graphics.tiles.forEach((v) => {
     scene.remove(v);
   });
-  mapMesh.meshes = [];
-  map.depth = debugObject.depth;
-  map.width = debugObject.width;
-
-  for (let x = 0; x < map.width; x++) {
-    for (let z = 0; z < map.depth; z++) {
-      generatePillar(
-        x - map.width / 2,
-        z - map.depth / 2,
-        map.heights[x][z] + 1
-      );
-    }
-  }
+  map.graphics.tiles = [];
+  map.data.tiles.forEach((v) => {
+    const mesh = generatePillar(v.x, v.y, v.height);
+    map.graphics.tiles.push(mesh);
+  });
 };
 
 const updateMap = () => {
-  gameMap.width = debugObject.width;
-  gameMap.depth = debugObject.depth;
-  while (gameMap.heights.length > gameMap.width) {
-    gameMap.heights.pop();
-  }
-  while (gameMap.heights.length < gameMap.width) {
-    gameMap.heights.push([]);
-  }
-
-  gameMap.heights.forEach((h, _) => {
-    while (h.length > gameMap.depth) {
-      h.pop();
-    }
-    while (h.length < gameMap.depth) {
-      h.push(0);
-    }
-  });
   regenerateMap(gameMap);
 };
 
 updateMap();
 gui.add(debugObject, "width").min(2).max(30).step(1).onChange(updateMap);
 gui.add(debugObject, "depth").min(2).max(30).step(1).onChange(updateMap);
+
+/**
+ * Selection
+ */
+
+const selectionPlaneG = new THREE.PlaneGeometry(1000, 1000);
+const selectionPlane = new THREE.Mesh(
+  selectionPlaneG,
+  new THREE.MeshBasicMaterial({})
+);
+selectionPlane.visible = false;
+selectionPlane.lookAt(new THREE.Vector3(0, 1, 0));
+selectionPlane.position.y = -1;
+selectionPlane.castShadow = false;
+selectionPlane.receiveShadow = false;
+scene.add(selectionPlane);
+
+const raycaster = new THREE.Raycaster();
+raycaster.layers.set(1);
+selectionPlane.layers.enable(1);
+
+const targetCoordinate = () => {
+  if (!inputManager.mousePos) {
+    return;
+  }
+  raycaster.setFromCamera(inputManager.mousePos, camera);
+
+  const intersects = raycaster.intersectObjects(scene.children);
+
+  if (intersects.length > 0) {
+    const p = intersects[0].point;
+    const x = Math.round(p.x);
+    const y = Math.round(p.z);
+
+    return [x, y];
+  }
+  return null;
+};
+
+const updateHighlight = () => {
+  const coord = targetCoordinate();
+  if (!coord) {
+    return;
+  }
+  const [hit, miss] = partition(gameMap.graphics.tiles, (v) => {
+    return coord[0] === v.x && coord[1] === v.y;
+  });
+  hit.forEach((v) => {
+    v.material = hoveredToonMaterial;
+  });
+  miss.forEach((v) => {
+    v.material = toonMaterial;
+  });
+};
+
+const addCube = () => {
+  const coord = targetCoordinate();
+  if (!coord) {
+    return;
+  }
+
+  const idx = gameMap.data.tiles.findIndex(
+    (v) => coord[0] === v.x && coord[1] === v.y
+  );
+  if (idx >= 0) {
+    return;
+  }
+
+  gameMap.data.tiles.push({ x: coord[0], y: coord[1], height: 1 });
+  regenerateMap(gameMap);
+};
+
+const removeCube = () => {
+  const coord = targetCoordinate();
+  if (!coord) {
+    return;
+  }
+
+  const idx = gameMap.data.tiles.findIndex(
+    (v) => coord[0] === v.x && coord[1] === v.y
+  );
+  console.log("tried remove:", idx);
+  if (idx < 0) {
+    return;
+  }
+  gameMap.data.tiles.splice(idx, 1);
+  regenerateMap(gameMap);
+};
 
 /**
  * Loading overlay
@@ -523,7 +644,7 @@ const makeDirectionalLight = (targetDirection = THREE.Object3D.DEFAULT_UP) => {
   return directionalLight;
 };
 
-makeDirectionalLight(new THREE.Vector3(-10, -10, -10));
+makeDirectionalLight(new THREE.Vector3(-10, -10, 3));
 
 /**
  * Animation
@@ -531,6 +652,7 @@ makeDirectionalLight(new THREE.Vector3(-10, -10, -10));
 const clock = new THREE.Clock();
 const tick = () => {
   stats.begin();
+  updateHighlight();
   if (controls.enabled) {
     timeTracker.elapsedTime =
       timeTracker.elapsedTime + debugObject.timeSpeed * clock.getDelta();
