@@ -402,6 +402,9 @@ const waterMaterial = new THREE.ShaderMaterial({
     uShadowThreshold: new THREE.Uniform(0.1),
     uHalfLitThreshold: new THREE.Uniform(0.5),
     uIsHovered: new THREE.Uniform(false),
+    uTime: new THREE.Uniform(0.0),
+    uWaveHeight: new THREE.Uniform(0.0),
+    uWaveFrequency: new THREE.Uniform(0.0),
   },
 });
 const groundMaterial = new THREE.ShaderMaterial({
@@ -433,8 +436,8 @@ const debugObject = {
   groundColor: new THREE.Color(0xffffff),
   shadowThreshold: 0.0,
   halfLitThreshold: 0.5,
-  width: 10,
-  depth: 10,
+  waveHeight: 0.1,
+  waveFrequency: 0.2,
 };
 
 const updateMaterials = () => {
@@ -443,6 +446,9 @@ const updateMaterials = () => {
   toonMaterial.uniforms.uLitColor.value = debugObject.litColor;
   toonMaterial.uniforms.uShadowThreshold.value = debugObject.shadowThreshold;
   toonMaterial.uniforms.uHalfLitThreshold.value = debugObject.halfLitThreshold;
+  waterMaterial.uniforms.uWaterColor.value = debugObject.waterColor;
+  waterMaterial.uniforms.uWaveFrequency.value = debugObject.waveFrequency;
+  waterMaterial.uniforms.uWaveHeight.value = debugObject.waveHeight;
   waterMaterial.uniforms.uWaterColor.value = debugObject.waterColor;
   groundMaterial.uniforms.uGroundColor.value = debugObject.groundColor;
 };
@@ -455,6 +461,18 @@ gui.addColor(debugObject, "halfLitColor").onChange(updateMaterials);
 gui.addColor(debugObject, "litColor").onChange(updateMaterials);
 gui.addColor(debugObject, "waterColor").onChange(updateMaterials);
 gui.addColor(debugObject, "groundColor").onChange(updateMaterials);
+gui
+  .add(debugObject, "waveHeight")
+  .min(0)
+  .max(0.4)
+  .step(0.01)
+  .onChange(updateMaterials);
+gui
+  .add(debugObject, "waveFrequency")
+  .min(0.1)
+  .max(0.4)
+  .step(0.01)
+  .onChange(updateMaterials);
 gui
   .add(debugObject, "shadowThreshold")
   .min(0)
@@ -511,8 +529,6 @@ const updateMap = () => {
 };
 
 updateMap();
-gui.add(debugObject, "width").min(2).max(30).step(1).onChange(updateMap);
-gui.add(debugObject, "depth").min(2).max(30).step(1).onChange(updateMap);
 
 /**
  * Selection
@@ -605,7 +621,7 @@ const removeCube = () => {
 /**
  * Water
  */
-const waterPlaneG = new THREE.PlaneGeometry(100, 100);
+const waterPlaneG = new THREE.PlaneGeometry(30, 30);
 const waterPlane = new THREE.Mesh(waterPlaneG, waterMaterial);
 waterPlane.lookAt(new THREE.Vector3(0, 1, 0));
 waterPlane.position.y = -1.5;
@@ -756,9 +772,10 @@ const clock = new THREE.Clock();
 const tick = () => {
   stats.begin();
   updateHighlight();
-  if (controls.enabled) {
+  if (timeTracker.enabled) {
     timeTracker.elapsedTime =
       timeTracker.elapsedTime + debugObject.timeSpeed * clock.getDelta();
+    waterMaterial.uniforms.uTime.value = timeTracker.elapsedTime;
   }
   // update controls
   controls.update();
