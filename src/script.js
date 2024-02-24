@@ -288,6 +288,10 @@ const universalEventHandler = (event) => {
     eventLog.push([timeTracker.elapsedTime, event]);
   }
   switch (event.type) {
+    case "keyup":
+    case "keydown":
+      setSelect(event.key);
+      break;
     case "resize":
     case "orientationchange":
       updateSize();
@@ -311,7 +315,6 @@ const universalEventHandler = (event) => {
       if (event.target.className !== "webgl") {
         return;
       }
-      console.log(event);
       inputManager.mousePos = mousePos(event);
       inputManager.mouseButtons = event.buttons;
       inputManager.mouseButtonState = event.type;
@@ -361,6 +364,20 @@ controls.enabled = false;
  */
 
 const toonMaterial = new THREE.ShaderMaterial({
+  lights: true,
+  vertexShader: toonVertexShader,
+  fragmentShader: toonFragmentShader,
+  uniforms: {
+    ...THREE.UniformsLib.lights,
+    uShadowColor: new THREE.Uniform(new THREE.Vector3(0.1, 0.1, 0.1)),
+    uHalfLitColor: new THREE.Uniform(new THREE.Vector3(0.5, 0.5, 0.5)),
+    uLitColor: new THREE.Uniform(new THREE.Vector3(0.9, 0.9, 0.9)),
+    uShadowThreshold: new THREE.Uniform(0.1),
+    uHalfLitThreshold: new THREE.Uniform(0.5),
+    uIsHovered: new THREE.Uniform(false),
+  },
+});
+const bushMaterial = new THREE.ShaderMaterial({
   lights: true,
   vertexShader: toonVertexShader,
   fragmentShader: toonFragmentShader,
@@ -490,6 +507,22 @@ gui
  * Map Tracker
  */
 
+const selectionConfig = {
+  current: "tile",
+};
+
+const setSelect = (num) => {
+  switch (num) {
+    case "1":
+    default:
+      selectionConfig.current = "tile";
+      break;
+    case "2":
+      selectionConfig.current = "bush";
+      break;
+  }
+};
+
 const gameMap = {
   data: JSON.parse(JSON.stringify(mapData)),
   graphics: {
@@ -497,17 +530,23 @@ const gameMap = {
   },
 };
 
-const generatePillar = (x, y, height) => {
-  const boxGeometry = new THREE.BoxGeometry(0.9, height, 0.9);
+const generateTile = (tile) => {
+  const boxGeometry = new THREE.BoxGeometry(0.9, tile.height, 0.9);
   const box = new THREE.Mesh(boxGeometry, toonMaterial);
-  box.position.x = x;
-  box.position.y = height / 2 - 2;
-  box.position.z = y;
+  box.position.x = tile.x;
+  box.position.y = tile.height / 2 - 2;
+  box.position.z = tile.y;
   box.castShadow = true;
   box.receiveShadow = true;
-  box.x = x;
-  box.y = y;
-  box.height = height;
+  box.x = tile.x;
+  box.y = tile.y;
+  box.height = tile.height;
+  if (tile.hasBush) {
+    const bushGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+    const bush = new THREE.Mesh(bushGeometry, bushMaterial);
+    box.add(bush);
+    bush.position.y = (tile.height + 0.6) / 2;
+  }
   scene.add(box);
   return box;
 };
@@ -518,8 +557,8 @@ const regenerateMap = (map) => {
     scene.remove(v);
   });
   map.graphics.tiles = [];
-  map.data.tiles.forEach((v) => {
-    const mesh = generatePillar(v.x, v.y, v.height);
+  map.data.tiles.forEach((tile) => {
+    const mesh = generateTile(tile);
     map.graphics.tiles.push(mesh);
   });
 };
@@ -589,15 +628,24 @@ const addCube = () => {
   if (!coord) {
     return;
   }
-
   const idx = gameMap.data.tiles.findIndex(
     (v) => coord[0] === v.x && coord[1] === v.y
   );
-  if (idx >= 0) {
-    return;
+  switch (selectionConfig.current) {
+    case "tile":
+      if (idx >= 0) {
+        return;
+      }
+      gameMap.data.tiles.push({ x: coord[0], y: coord[1], height: 1 });
+      break;
+    case "bush":
+      if (idx < 0) {
+        return;
+      }
+      gameMap.data.tiles[idx].hasBush = true;
+      break;
   }
 
-  gameMap.data.tiles.push({ x: coord[0], y: coord[1], height: 1 });
   regenerateMap(gameMap);
 };
 
@@ -606,15 +654,24 @@ const removeCube = () => {
   if (!coord) {
     return;
   }
-
   const idx = gameMap.data.tiles.findIndex(
     (v) => coord[0] === v.x && coord[1] === v.y
   );
-  console.log("tried remove:", idx);
-  if (idx < 0) {
-    return;
+  switch (selectionConfig.current) {
+    case "tile":
+      if (idx < 0) {
+        return;
+      }
+      gameMap.data.tiles.splice(idx, 1);
+      break;
+    case "bush":
+      if (idx < 0) {
+        return;
+      }
+      gameMap.data.tiles[idx].hasBush = false;
+      break;
   }
-  gameMap.data.tiles.splice(idx, 1);
+
   regenerateMap(gameMap);
 };
 
