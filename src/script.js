@@ -436,8 +436,8 @@ const debugObject = {
   groundColor: new THREE.Color(0xffffff),
   shadowThreshold: 0.0,
   halfLitThreshold: 0.5,
-  waveHeight: 0.1,
-  waveFrequency: 0.2,
+  waveHeight: 0.15,
+  waveFrequency: 0.1,
 };
 
 const updateMaterials = () => {
