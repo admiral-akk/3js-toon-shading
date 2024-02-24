@@ -37,23 +37,48 @@ const partition = (array, filterFn) => {
 /**
  * Core objects
  */
-const generateCamera = (isPerspective, aspectRatio, near = 0.001) => {
-  let camera;
-  if (isPerspective) {
-    camera = new THREE.PerspectiveCamera(75, aspectRatio);
-  } else {
-    const height = 10;
-    const width = aspectRatio * height;
+const perspectiveConfig = {
+  type: "perspective",
+  fov: 75,
+};
 
-    camera = new THREE.OrthographicCamera(
-      -width / 2,
-      width / 2,
-      height / 2,
-      -height / 2,
-      near
-    );
+const orthographicConfig = {
+  type: "orthographic",
+  height: 10,
+};
+
+const cameraConfig = {
+  subtypeConfig: orthographicConfig,
+  aspectRatio: 16 / 9,
+  near: 0.001,
+};
+
+const generateCamera = ({ aspectRatio, subtypeConfig, near }) => {
+  let camera;
+  switch (subtypeConfig.type) {
+    case "perspective":
+      camera = new THREE.PerspectiveCamera(
+        subtypeConfig.fov,
+        cameraConfig.aspectRatio
+      );
+      break;
+    case "orthographic":
+      const height = subtypeConfig.height;
+      const width = aspectRatio * height;
+
+      camera = new THREE.OrthographicCamera(
+        -width / 2,
+        width / 2,
+        height / 2,
+        -height / 2,
+        near
+      );
+      break;
+    default:
+      throw new Error("unknown camera type");
   }
   camera.aspect = aspectRatio;
+  camera.near = near;
   return camera;
 };
 
@@ -62,8 +87,7 @@ const canvasContainer = document.querySelector("div.relative");
 const ui = document.querySelector("div.overlay");
 const canvas = document.querySelector("canvas.webgl");
 const listener = new THREE.AudioListener();
-const aspectRatio = 16 / 9;
-const camera = generateCamera(false, aspectRatio);
+const camera = generateCamera(cameraConfig);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 camera.add(listener);
 renderer.setClearColor("#201919");
