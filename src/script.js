@@ -365,84 +365,86 @@ controls.enabled = false;
 const materials = new Set();
 const debugUUIDs = new Set();
 
-const updateMaterialSet = () => {
-  scene.traverse(function (object) {
-    if (object.material) materials.add(object.material);
-  });
+const registerMaterial = (material) => {
+  const { uuid, uniforms, name } = material;
+  if (debugUUIDs.has(uuid)) {
+    return;
+  }
+  debugUUIDs.add(material.uuid);
+  console.log(material);
 
-  materials.forEach((material) => {
-    const { uuid, uniforms } = material;
-    if (debugUUIDs.has(uuid)) {
-      return;
-    }
-    debugUUIDs.add(material.uuid);
-
-    // Update debug menu
-    for (const property in uniforms) {
-      const name = `${property}`;
-      const value = uniforms[name].value;
-      // We mark all of our uniform properties with 'u' to start.
-      if (`${property}`[0] === "u") {
-        const controller = gui.controllers.find((c) => c._name === name);
+  // Update debug menu
+  for (const property in uniforms) {
+    const pName = `${property}`;
+    const value = uniforms[pName].value;
+    // We mark all of our uniform properties with 'u' to start.
+    if (`${property}`[0] === "u") {
+      const debugName = `${name}_${pName}`;
+      const controller = gui.controllers.find((c) => c._name === debugName);
+      if (controller) {
+        // already added, link it.
+        const controller = gui.controllers.find((c) => {
+          return c._name === debugName;
+        });
         if (controller) {
-          // already added, link it.
-          const controller = gui.controllers.find((c) => {
-            return c._name === name;
+          const oldOnChange = controller._onChange;
+          controller.onChange((newColor) => {
+            oldOnChange(newColor);
+            material.uniforms[debugName].value = newColor;
           });
-          if (controller) {
-            const oldOnChange = controller._onChange;
-            controller.onChange((newColor) => {
-              oldOnChange(newColor);
-              material.uniforms[name].value = newColor;
-            });
-          }
-        } else {
-          if (value.isColor) {
-            debugObject[name] = value;
-            gui.addColor(debugObject, name).onChange((newColor) => {
-              material.uniforms[name].value = newColor;
-            });
-          } else if (typeof value === "number") {
-            debugObject[name] = value;
-            gui
-              .add(debugObject, name)
-              .onChange((newValue) => {
-                material.uniforms[name].value = newValue;
-              })
-              .min(0)
-              .max(1)
-              .step(0.05);
-          } else if (typeof value === "boolean") {
-            debugObject[name] = value;
-            gui
-              .add(debugObject, name)
-              .onChange((newValue) => {
-                material.uniforms[name].value = newValue;
-              })
-              .min(0)
-              .max(1)
-              .step(0.05);
-          } else if (
-            value.length === 2 ||
-            value.length === 3 ||
-            value.length === 4
-          ) {
-            debugObject[name] = value;
-            gui
-              .add(debugObject, name)
-              .onChange((newValue) => {
-                material.uniforms[name].value = newValue;
-              })
-              .min(0)
-              .max(1)
-              .step(0.05);
-          }
+        }
+      } else {
+        if (value.isColor) {
+          debugObject[debugName] = value;
+          gui.addColor(debugObject, debugName).onChange((newColor) => {
+            material.uniforms[debugName].value = newColor;
+          });
+        } else if (typeof value === "number") {
+          debugObject[debugName] = value;
+          gui
+            .add(debugObject, debugName)
+            .onChange((newValue) => {
+              material.uniforms[debugName].value = newValue;
+            })
+            .min(0)
+            .max(1)
+            .step(0.05);
+        } else if (typeof value === "boolean") {
+          debugObject[debugName] = value;
+          gui
+            .add(debugObject, debugName)
+            .onChange((newValue) => {
+              material.uniforms[debugName].value = newValue;
+            })
+            .min(0)
+            .max(1)
+            .step(0.05);
+        } else if (
+          value.length === 2 ||
+          value.length === 3 ||
+          value.length === 4
+        ) {
+          debugObject[debugName] = value;
+          gui
+            .add(debugObject, debugName)
+            .onChange((newValue) => {
+              material.uniforms[debugName].value = newValue;
+            })
+            .min(0)
+            .max(1)
+            .step(0.05);
         }
       }
-
-      // Add time uniform
-      material.uniforms.uTime = new THREE.Uniform(0.0);
     }
+
+    // Add time uniform
+    material.uniforms.uTime = new THREE.Uniform(0.0);
+  }
+};
+
+const updateMaterialSet = () => {
+  scene.traverse(function (object) {
+    if (object.material) registerMaterial(object.material);
   });
 };
 
@@ -474,6 +476,7 @@ const bushMaterial = new THREE.ShaderMaterial({
     uIsHovered: new THREE.Uniform(false),
   },
 });
+bushMaterial.name = "bush";
 const hoveredToonMaterial = new THREE.ShaderMaterial({
   lights: true,
   vertexShader: toonVertexShader,
@@ -506,6 +509,7 @@ const waterMaterial = new THREE.ShaderMaterial({
     uWaveFrequency: new THREE.Uniform(0.1),
   },
 });
+waterMaterial.name = "water";
 const groundMaterial = new THREE.ShaderMaterial({
   lights: true,
   vertexShader: groundVertexShader,
@@ -532,6 +536,8 @@ const debugObject = {
 
 const gui = new GUI();
 gui.add(debugObject, "timeSpeed").min(0).max(3).step(0.1);
+registerMaterial(bushMaterial);
+registerMaterial(waterMaterial);
 
 /**
  * Map Tracker
