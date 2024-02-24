@@ -37,15 +37,34 @@ const partition = (array, filterFn) => {
 /**
  * Core objects
  */
+const generateCamera = (isPerspective, aspectRatio, near = 0.001) => {
+  let camera;
+  if (isPerspective) {
+    camera = new THREE.PerspectiveCamera(75, aspectRatio);
+  } else {
+    const height = 10;
+    const width = aspectRatio * height;
+
+    camera = new THREE.OrthographicCamera(
+      -width / 2,
+      width / 2,
+      height / 2,
+      -height / 2,
+      near
+    );
+  }
+  camera.aspect = aspectRatio;
+  return camera;
+};
+
 const container = document.querySelector("div.container");
 const canvasContainer = document.querySelector("div.relative");
 const ui = document.querySelector("div.overlay");
 const canvas = document.querySelector("canvas.webgl");
-const aspectRatio = 16 / 9;
-const camera = new THREE.PerspectiveCamera(75, aspectRatio);
-camera.near = 0.001;
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 const listener = new THREE.AudioListener();
+const aspectRatio = 16 / 9;
+const camera = generateCamera(false, aspectRatio);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 camera.add(listener);
 renderer.setClearColor("#201919");
 renderer.shadowMap.enabled = true;
@@ -191,6 +210,7 @@ const sizes = {
   verticalOffset: 0,
   horizontalOffset: 0,
 };
+
 const updateSize = () => {
   if (window.innerHeight * camera.aspect > window.innerWidth) {
     sizes.width = window.innerWidth;
@@ -561,7 +581,7 @@ const removeCube = () => {
 /**
  * Water
  */
-const waterPlaneG = new THREE.PlaneGeometry(1000, 1000);
+const waterPlaneG = new THREE.PlaneGeometry(100, 100);
 const waterPlane = new THREE.Mesh(waterPlaneG, waterMaterial);
 waterPlane.lookAt(new THREE.Vector3(0, 1, 0));
 waterPlane.position.y = -1.5;
