@@ -505,7 +505,7 @@ const toonMaterial = new THREE.ShaderMaterial({
     }),
     uShadowThreshold: customUniform(0.1, { attachDebug: true }),
     uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
-    uIsHovered: customUniform(false, { attachDebug: true }),
+    uIsHovered: customUniform(false),
   },
 });
 const bushMaterial = new THREE.ShaderMaterial({
@@ -529,7 +529,7 @@ const bushMaterial = new THREE.ShaderMaterial({
     }),
     uShadowThreshold: customUniform(0.35, { attachDebug: true }),
     uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
-    uIsHovered: customUniform(false, { attachDebug: true }),
+    uIsHovered: customUniform(false),
     uNoise: new THREE.Uniform(
       loadTexture("noiseTexture", {
         wrapS: THREE.RepeatWrapping,
@@ -557,7 +557,7 @@ const hoveredToonMaterial = new THREE.ShaderMaterial({
     }),
     uShadowThreshold: customUniform(0.1, { attachDebug: true }),
     uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
-    uIsHovered: customUniform(true, { attachDebug: true }),
+    uIsHovered: customUniform(true),
   },
 });
 const waterMaterial = new THREE.ShaderMaterial({
@@ -579,7 +579,7 @@ const waterMaterial = new THREE.ShaderMaterial({
     }),
     uShadowThreshold: customUniform(0.1, { attachDebug: true }),
     uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
-    uIsHovered: customUniform(false, { attachDebug: true }),
+    uIsHovered: customUniform(false),
     uWaterColor: customUniform(new THREE.Color(0x0000ef)),
     uWaveHeight: customUniform(0.15),
     uWaveFrequency: customUniform(0.1),
@@ -603,7 +603,7 @@ const groundMaterial = new THREE.ShaderMaterial({
     }),
     uShadowThreshold: customUniform(0.1, { attachDebug: true }),
     uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
-    uIsHovered: customUniform(false, { attachDebug: true }),
+    uIsHovered: customUniform(false),
     uGroundColor: customUniform(new THREE.Color(0xefefef)),
   },
 });
