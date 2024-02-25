@@ -23,6 +23,7 @@ import waterFragmentShader from "./shaders/water/fragment.glsl";
 import groundVertexShader from "./shaders/ground/vertex.glsl";
 import groundFragmentShader from "./shaders/ground/fragment.glsl";
 import mapData from "./data/map.json";
+import { uniform } from "three/examples/jsm/nodes/core/UniformNode";
 
 /**
  * Helpers
@@ -387,9 +388,54 @@ controls.enabled = false;
  */
 const materials = new Set();
 const debugUUIDs = new Set();
+const controllers = new Map();
+const references = new Map();
+
+const updateDebugGui = () => {
+  references.forEach((uniformValues, uniformName) => {
+    if (controllers.has(uniformName)) {
+      controllers.get(uniformName).destroy();
+      controllers.delete(uniformName);
+    }
+    const sampleValue = uniformValues[0].value;
+    const onChange = (newValue) => {
+      uniformValues.forEach((uniform) => {
+        uniform.value = newValue;
+      });
+    };
+    console.log(uniformName);
+    console.log(uniformValues);
+    debugObject[uniformName] = sampleValue;
+    if (sampleValue.isColor) {
+      controllers.set(
+        uniformName,
+        gui.addColor(debugObject, uniformName).onChange(onChange)
+      );
+    } else if (
+      typeof sampleValue === "boolean" ||
+      typeof sampleValue === "number" ||
+      sampleValue.length === 2 ||
+      sampleValue.length === 3 ||
+      sampleValue.length === 4
+    ) {
+      controllers.set(
+        uniformName,
+        gui
+          .add(debugObject, uniformName)
+          .onChange(onChange)
+          .min(-1)
+          .max(1)
+          .step(0.05)
+      );
+    }
+  });
+};
 
 const registerMaterial = (material) => {
   const { uuid, uniforms, name } = material;
+  if (!uniforms) {
+    return;
+  }
   if (debugUUIDs.has(uuid)) {
     return;
   }
@@ -398,70 +444,21 @@ const registerMaterial = (material) => {
   // Update debug menu
   for (const property in uniforms) {
     const pName = `${property}`;
-    const value = uniforms[pName].value;
     // We mark all of our uniform properties with 'u' to start.
     if (`${property}`[0] === "u") {
       const debugName = `${name}_${pName}`;
-      const controller = gui.controllers.find((c) => c._name === debugName);
-      if (controller) {
-        // already added, link it.
-        const controller = gui.controllers.find((c) => {
-          return c._name === debugName;
-        });
-        if (controller) {
-          const oldOnChange = controller._onChange;
-          controller.onChange((newColor) => {
-            oldOnChange(newColor);
-            material.uniforms[debugName].value = newColor;
-          });
-        }
-      } else {
-        if (value.isColor) {
-          debugObject[debugName] = value;
-          gui.addColor(debugObject, debugName).onChange((newColor) => {
-            material.uniforms[debugName].value = newColor;
-          });
-        } else if (typeof value === "number") {
-          debugObject[debugName] = value;
-          gui
-            .add(debugObject, debugName)
-            .onChange((newValue) => {
-              material.uniforms[debugName].value = newValue;
-            })
-            .min(0)
-            .max(1)
-            .step(0.05);
-        } else if (typeof value === "boolean") {
-          debugObject[debugName] = value;
-          gui
-            .add(debugObject, debugName)
-            .onChange((newValue) => {
-              material.uniforms[debugName].value = newValue;
-            })
-            .min(0)
-            .max(1)
-            .step(0.05);
-        } else if (
-          value.length === 2 ||
-          value.length === 3 ||
-          value.length === 4
-        ) {
-          debugObject[debugName] = value;
-          gui
-            .add(debugObject, debugName)
-            .onChange((newValue) => {
-              material.uniforms[debugName].value = newValue;
-            })
-            .min(0)
-            .max(1)
-            .step(0.05);
-        }
+      if (!references.has(debugName)) {
+        references.set(debugName, []);
       }
+      console.log(debugName);
+      console.log(uniforms[pName]);
+      references.get(debugName).push(uniforms[pName]);
+      console.log(references);
     }
-
-    // Add time uniform
-    material.uniforms.uTime = new THREE.Uniform(0.0);
   }
+
+  updateDebugGui();
+  material.uniforms.uTime = new THREE.Uniform(0.0);
 };
 
 const updateMaterialSet = () => {
