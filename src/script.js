@@ -22,7 +22,7 @@ import waterVertexShader from "./shaders/water/vertex.glsl";
 import waterFragmentShader from "./shaders/water/fragment.glsl";
 import groundVertexShader from "./shaders/ground/vertex.glsl";
 import groundFragmentShader from "./shaders/ground/fragment.glsl";
-import mapData from "./data/map.json";
+import gameData from "./gameData.json";
 import { uniform } from "three/examples/jsm/nodes/core/UniformNode";
 
 /**
@@ -145,12 +145,21 @@ dracoLoader.setDecoderPath("./draco/gltf/");
  * Data
  */
 
-const jsonData = new Map();
+const importData = () => {
+  return gameData;
+};
 
-const loadJson = (name) => {
-  const texture = textureLoader.load(`./texture/${name}.png`);
-  textures.set(name, texture);
-  return texture;
+const exportData = () => {
+  var link = document.createElement("a");
+  const fileName = "gameData.json";
+  var myFile = new Blob([JSON.stringify(gameData)], {
+    type: "application/json",
+  });
+  link.download = fileName;
+  link.setAttribute("href", window.URL.createObjectURL(myFile));
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 /**
@@ -332,9 +341,10 @@ const universalEventHandler = (event) => {
     eventLog.push([timeTracker.elapsedTime, event]);
   }
   switch (event.type) {
-    case "keyup":
     case "keydown":
       setSelect(event.key);
+      break;
+    case "keyup":
       break;
     case "resize":
     case "orientationchange":
@@ -638,11 +648,14 @@ const setSelect = (num) => {
     case "2":
       selectionConfig.current = "bush";
       break;
+    case "3":
+      exportData();
+      break;
   }
 };
 
 const gameMap = {
-  data: JSON.parse(JSON.stringify(mapData)),
+  data: importData(),
   graphics: {
     tiles: [],
   },
@@ -662,7 +675,6 @@ const generateSubbush = (size, position, rotation = 0) => {
 
   return subbush;
 };
-
 const generateBush = () => {
   const bush = new THREE.Group();
   const size = 0.2;
