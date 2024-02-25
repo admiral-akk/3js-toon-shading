@@ -6,9 +6,12 @@ Credits
 - Matcap Material(s): https://github.com/nidorx/matcaps
 - Sword Swoosh(s): https://freesound.org/people/Artninja/packs/39091/
 - Base Color(s): https://imphenzia.com/assets
+- Perlin Noise Generator: http://kitfox.com/projects/perlinNoiseMaker/
+- Perlin Noise Fields: https://sighack.com/post/getting-creative-with-perlin-noise-fields
 
 Learning Resources
 
 - Three.js: https://threejs-journey.com/
 - Basic Toon Shader: https://www.maya-ndljk.com/blog/threejs-basic-toon-shader
 - Marching Cubes: https://paulbourke.net/geometry/polygonise/
+- Coloring Tutorials: https://dewpearlart.com/

@@ -16,6 +16,8 @@ import matcapVertexShader from "./shaders/matcap/vertex.glsl";
 import matcapFragmentShader from "./shaders/matcap/fragment.glsl";
 import toonVertexShader from "./shaders/toon/vertex.glsl";
 import toonFragmentShader from "./shaders/toon/fragment.glsl";
+import bushVertexShader from "./shaders/bush/vertex.glsl";
+import bushFragmentShader from "./shaders/bush/fragment.glsl";
 import waterVertexShader from "./shaders/water/vertex.glsl";
 import waterFragmentShader from "./shaders/water/fragment.glsl";
 import groundVertexShader from "./shaders/ground/vertex.glsl";
@@ -44,7 +46,7 @@ const perspectiveConfig = {
 
 const orthographicConfig = {
   type: "orthographic",
-  height: 10,
+  height: 4,
 };
 
 const cameraConfig = {
@@ -140,9 +142,12 @@ const loadTextureFromUrl = (url) => {
   return texture;
 };
 
-const loadTexture = (name) => {
-  const texture = textureLoader.load(`./texture/${name}.png`);
+const loadTexture = (name, config, fileExt = "png") => {
+  const texture = textureLoader.load(`./texture/${name}.${fileExt}`);
   textures.set(name, texture);
+  for (const param in config) {
+    texture[`${param}`] = config.param;
+  }
   return texture;
 };
 
@@ -371,7 +376,6 @@ const registerMaterial = (material) => {
     return;
   }
   debugUUIDs.add(material.uuid);
-  console.log(material);
 
   // Update debug menu
   for (const property in uniforms) {
@@ -464,16 +468,33 @@ const toonMaterial = new THREE.ShaderMaterial({
 });
 const bushMaterial = new THREE.ShaderMaterial({
   lights: true,
-  vertexShader: toonVertexShader,
-  fragmentShader: toonFragmentShader,
+  vertexShader: bushVertexShader,
+  fragmentShader: bushFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Color(0.1, 0.1, 0.1)),
-    uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
+    uShadowColor: new THREE.Uniform(
+      new THREE.Color(61 / 255, 97 / 255, 85 / 255)
+    ),
+    uHalfLitColor: new THREE.Uniform(
+      new THREE.Color(77 / 255, 125 / 255, 85 / 255)
+    ),
+    uLitColor: new THREE.Uniform(
+      new THREE.Color(124 / 255, 175 / 255, 119 / 255)
+    ),
     uShadowThreshold: new THREE.Uniform(0.1),
     uHalfLitThreshold: new THREE.Uniform(0.5),
     uIsHovered: new THREE.Uniform(false),
+    uNoise: new THREE.Uniform(
+      loadTexture(
+        "noiseTexture",
+        {
+          wrapS: THREE.RepeatWrapping,
+          wrapT: THREE.RepeatWrapping,
+          repeat: new THREE.Vector2(100, 100),
+        },
+        "jpg"
+      )
+    ),
   },
 });
 bushMaterial.name = "bush";
@@ -566,6 +587,61 @@ const gameMap = {
   },
 };
 
+const leafG = new THREE.SphereGeometry(0.06);
+
+const generateBush = () => {
+  const bushGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+  const bush = new THREE.Mesh(bushGeometry, bushMaterial);
+  for (let i = 0; i < 100; i++) {
+    const leaf = new THREE.Mesh(leafG, bushMaterial);
+    bush.add(leaf);
+    const randomVec = new THREE.Vector3();
+    randomVec.randomDirection();
+    leaf.receiveShadow = false;
+    leaf.castShadow = false;
+    leaf.lookAt(randomVec);
+    leaf.position.x = 0.31;
+    leaf.position.y = 0.6 * (Math.random() - 0.5);
+    leaf.position.z = 0.6 * (Math.random() - 0.5);
+    leaf.scale.x = Math.random() / 2 + 0.5;
+    leaf.scale.y = leaf.scale.x;
+    leaf.scale.z = leaf.scale.x;
+  }
+  for (let i = 0; i < 100; i++) {
+    const leaf = new THREE.Mesh(leafG, bushMaterial);
+    bush.add(leaf);
+    const randomVec = new THREE.Vector3();
+    randomVec.randomDirection();
+    leaf.receiveShadow = false;
+    leaf.castShadow = false;
+    leaf.lookAt(randomVec);
+    leaf.position.y = 0.31;
+    leaf.position.x = 0.6 * (Math.random() - 0.5);
+    leaf.position.z = 0.6 * (Math.random() - 0.5);
+    leaf.scale.x = Math.random() / 2 + 0.5;
+    leaf.scale.y = leaf.scale.x;
+    leaf.scale.z = leaf.scale.x;
+  }
+  for (let i = 0; i < 100; i++) {
+    const leaf = new THREE.Mesh(leafG, bushMaterial);
+    bush.add(leaf);
+    const randomVec = new THREE.Vector3();
+    randomVec.randomDirection();
+    leaf.receiveShadow = false;
+    leaf.castShadow = false;
+    leaf.lookAt(randomVec);
+    leaf.position.z = 0.31;
+    leaf.position.x = 0.6 * (Math.random() - 0.5);
+    leaf.position.y = 0.6 * (Math.random() - 0.5);
+    leaf.scale.x = Math.random() / 2 + 0.5;
+    leaf.scale.y = leaf.scale.x;
+    leaf.scale.z = leaf.scale.x;
+  }
+  bush.receiveShadow = true;
+  bush.castShadow = true;
+  return bush;
+};
+
 const generateTile = (tile) => {
   const boxGeometry = new THREE.BoxGeometry(0.9, tile.height, 0.9);
   const box = new THREE.Mesh(boxGeometry, toonMaterial);
@@ -578,8 +654,7 @@ const generateTile = (tile) => {
   box.y = tile.y;
   box.height = tile.height;
   if (tile.hasBush) {
-    const bushGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-    const bush = new THREE.Mesh(bushGeometry, bushMaterial);
+    const bush = generateBush();
     box.add(bush);
     bush.position.y = (tile.height + 0.6) / 2;
   }
