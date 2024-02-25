@@ -70,7 +70,7 @@ const orthographicConfig = {
 };
 
 const cameraConfig = {
-  subtypeConfig: orthographicConfig,
+  subtypeConfig: perspectiveConfig,
   aspectRatio: 16 / 9,
   near: 0.001,
   position: new THREE.Vector3(5, 7, 5),
@@ -280,6 +280,7 @@ const updateZoom = () => {
     camera.top = height / 2;
     camera.bottom = -height / 2;
   } else if (camera.isPerspectiveCamera) {
+    camera.position.multiplyScalar(customZoom / camera.position.length());
   }
   camera.updateProjectionMatrix();
 };
