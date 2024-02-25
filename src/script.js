@@ -61,20 +61,22 @@ const randomVector = (
 const perspectiveConfig = {
   type: "perspective",
   fov: 75,
+  zoom: 5,
 };
 
 const orthographicConfig = {
   type: "orthographic",
-  height: 4,
+  zoom: 5,
 };
 
 const cameraConfig = {
   subtypeConfig: orthographicConfig,
   aspectRatio: 16 / 9,
   near: 0.001,
+  position: new THREE.Vector3(5, 7, 5),
 };
 
-const generateCamera = ({ aspectRatio, subtypeConfig, near }) => {
+const generateCamera = ({ aspectRatio, subtypeConfig, near, position }) => {
   let camera;
   switch (subtypeConfig.type) {
     case "perspective":
@@ -82,9 +84,10 @@ const generateCamera = ({ aspectRatio, subtypeConfig, near }) => {
         subtypeConfig.fov,
         cameraConfig.aspectRatio
       );
+      camera.customZoom = subtypeConfig.zoom;
       break;
     case "orthographic":
-      const height = subtypeConfig.height;
+      const height = subtypeConfig.zoom;
       const width = aspectRatio * height;
 
       camera = new THREE.OrthographicCamera(
@@ -94,12 +97,17 @@ const generateCamera = ({ aspectRatio, subtypeConfig, near }) => {
         -height / 2,
         near
       );
+      camera.customZoom = subtypeConfig.zoom;
       break;
     default:
       throw new Error("unknown camera type");
   }
+  camera.position.x = position.x;
+  camera.position.y = position.y;
+  camera.position.z = position.z;
   camera.aspect = aspectRatio;
   camera.near = near;
+  camera.lookAt(new THREE.Vector3());
   return camera;
 };
 
@@ -115,6 +123,7 @@ renderer.setClearColor("#201919");
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
+scene.add(camera);
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
@@ -259,6 +268,22 @@ const sizes = {
   horizontalOffset: 0,
 };
 
+const updateZoom = () => {
+  const { customZoom, aspect } = camera;
+  if (camera.isOrthographicCamera) {
+    const height = customZoom;
+    const width = aspect * height;
+    console.log(customZoom, height, width);
+
+    camera.left = -width / 2;
+    camera.right = width / 2;
+    camera.top = height / 2;
+    camera.bottom = -height / 2;
+  } else if (camera.isPerspectiveCamera) {
+  }
+  camera.updateProjectionMatrix();
+};
+
 const updateSize = () => {
   if (window.innerHeight * camera.aspect > window.innerWidth) {
     sizes.width = window.innerWidth;
@@ -333,6 +358,14 @@ const universalEventHandler = (event) => {
         container.requestFullscreen();
       }
       break;
+    case "wheel":
+      camera.customZoom = Math.clamp(
+        camera.customZoom + event.deltaY / 100,
+        1,
+        100
+      );
+      updateZoom();
+      break;
     case "pointerdown":
     case "pointerup":
     case "pointermove":
@@ -374,16 +407,6 @@ window.addEventListener(
 );
 
 /**
- * Setup camera
- */
-camera.position.x = 5;
-camera.position.y = 7;
-camera.position.z = 5;
-scene.add(camera);
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enabled = false;
-
-/**
  * Materials
  */
 const materials = new Set();
@@ -398,15 +421,13 @@ const updateDebugGui = () => {
       controllers.delete(uniformName);
     }
     const sampleValue = uniformValues[0].value;
-    const onChange = (newValue) => {
-      uniformValues.forEach((uniform) => {
-        uniform.value = newValue;
-      });
-    };
-    console.log(uniformName);
-    console.log(uniformValues);
     debugObject[uniformName] = sampleValue;
     if (sampleValue.isColor) {
+      const onChange = (newValue) => {
+        uniformValues.forEach((uniform) => {
+          uniform.value = newValue;
+        });
+      };
       controllers.set(
         uniformName,
         gui.addColor(debugObject, uniformName).onChange(onChange)
@@ -418,6 +439,11 @@ const updateDebugGui = () => {
       sampleValue.length === 3 ||
       sampleValue.length === 4
     ) {
+      const onChange = (newValue) => {
+        uniformValues.forEach((uniform) => {
+          uniform.value = newValue;
+        });
+      };
       controllers.set(
         uniformName,
         gui
@@ -450,10 +476,7 @@ const registerMaterial = (material) => {
       if (!references.has(debugName)) {
         references.set(debugName, []);
       }
-      console.log(debugName);
-      console.log(uniforms[pName]);
       references.get(debugName).push(uniforms[pName]);
-      console.log(references);
     }
   }
 
@@ -498,19 +521,15 @@ const bushMaterial = new THREE.ShaderMaterial({
     uLitColor: new THREE.Uniform(
       new THREE.Color(124 / 255, 175 / 255, 119 / 255)
     ),
-    uShadowThreshold: new THREE.Uniform(0.1),
+    uShadowThreshold: new THREE.Uniform(0.352),
     uHalfLitThreshold: new THREE.Uniform(0.5),
     uIsHovered: new THREE.Uniform(false),
     uNoise: new THREE.Uniform(
-      loadTexture(
-        "noiseTexture",
-        {
-          wrapS: THREE.RepeatWrapping,
-          wrapT: THREE.RepeatWrapping,
-          repeat: new THREE.Vector2(100, 100),
-        },
-        "jpg"
-      )
+      loadTexture("noiseTexture", {
+        wrapS: THREE.RepeatWrapping,
+        wrapT: THREE.RepeatWrapping,
+        repeat: new THREE.Vector2(10000, 10000),
+      })
     ),
   },
 });
@@ -950,7 +969,7 @@ const tick = () => {
     });
   }
   // update controls
-  controls.update();
+  // controls.update();
 
   // Render scene
   rotateBox(timeTracker.elapsedTime);

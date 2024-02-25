@@ -20,7 +20,6 @@ void main()
 {
   // shadow map
   DirectionalLightShadow directionalShadow = directionalLightShadows[0];
-  float noise = texture2D(uNoise,1.1*vec2(vWorldPos.x+vWorldPos.y,vWorldPos.z-vWorldPos.y)).x;
 
   float shadow = getShadow(
     directionalShadowMap[0],
@@ -29,7 +28,16 @@ void main()
     directionalShadow.shadowRadius,
     vDirectionalShadowCoord[0]
   );
-  float NdotL = dot(vNormal, directionalLights[0].direction) ;//+2.*(noise -0.5);
+
+  vec3 lightCross = normalize(cross(vec3(0.,1.,0.),directionalLights[0].direction));
+  vec3 otherLightCross = normalize(cross(vec3(0.,1.,0.),lightCross));
+
+  vec3 lightOrthogonal =vWorldPos- 
+  dot(vWorldPos,directionalLights[0].direction) * directionalLights[0].direction;
+  
+  vec2 texSample = 1.*vec2(dot(lightCross,lightOrthogonal), dot(otherLightCross,lightOrthogonal));
+  float noise = 2.*(texture2D(uNoise,texSample).x- 0.5);
+  float NdotL = dot(vNormal, directionalLights[0].direction) + 0.25* noise;
   float val = clamp(NdotL*shadow, 0., 1.);
   float isShadow =  step(val,uShadowThreshold);
   float isHalfLit = (1. - isShadow) * step(val, uHalfLitThreshold);
