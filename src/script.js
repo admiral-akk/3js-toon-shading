@@ -29,11 +29,29 @@ import mapData from "./data/map.json";
  */
 Math.clamp = (num, min, max) => Math.max(min, Math.min(num, max));
 
+Math.randomRange = (min = 0, max = 1) => Math.random() * (max - min) + min;
+
 const partition = (array, filterFn) => {
   const pass = [];
   const fail = [];
   array.forEach((e, idx, arr) => (filterFn(e, idx, arr) ? pass : fail).push(e));
   return [pass, fail];
+};
+
+const _dummyVector = new THREE.Vector3();
+
+const randomVector = (
+  minX = 0,
+  maxX = 1,
+  minY = 0,
+  maxY = 1,
+  minZ = 0,
+  maxZ = 1
+) => {
+  _dummyVector.x = Math.random() * (maxX - minX) + minX;
+  _dummyVector.y = Math.random() * (maxY - minY) + minY;
+  _dummyVector.z = Math.random() * (maxZ - minZ) + minZ;
+  return _dummyVector;
 };
 
 /**
@@ -458,7 +476,9 @@ const toonMaterial = new THREE.ShaderMaterial({
   fragmentShader: toonFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Color(0.1, 0.1, 0.1)),
+    uShadowColor: new THREE.Uniform(
+      new THREE.Color(75 / 255, 75 / 255, 75 / 255)
+    ),
     uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
     uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
     uShadowThreshold: new THREE.Uniform(0.1),
@@ -587,67 +607,49 @@ const gameMap = {
   },
 };
 
-const leafG = new THREE.SphereGeometry(0.06);
+const leafG = new THREE.SphereGeometry(1, 7, 7);
+
+const generateSubbush = (size, position, rotation = 0) => {
+  const subbush = new THREE.Mesh(leafG, bushMaterial);
+  subbush.receiveShadow = true;
+  subbush.castShadow = true;
+  subbush.position.copy(position);
+  subbush.scale.y = size / 1.5;
+  subbush.scale.x = 1.5 * size;
+  subbush.scale.z = size;
+  subbush.rotateY(rotation);
+
+  return subbush;
+};
 
 const generateBush = () => {
-  const bushGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-  const bush = new THREE.Mesh(bushGeometry, bushMaterial);
-  for (let i = 0; i < 100; i++) {
-    const leaf = new THREE.Mesh(leafG, bushMaterial);
-    bush.add(leaf);
-    const randomVec = new THREE.Vector3();
-    randomVec.randomDirection();
-    leaf.receiveShadow = false;
-    leaf.castShadow = false;
-    leaf.lookAt(randomVec);
-    leaf.position.x = 0.31;
-    leaf.position.y = 0.6 * (Math.random() - 0.5);
-    leaf.position.z = 0.6 * (Math.random() - 0.5);
-    leaf.scale.x = Math.random() / 2 + 0.5;
-    leaf.scale.y = leaf.scale.x;
-    leaf.scale.z = leaf.scale.x;
+  const bush = new THREE.Group();
+  const size = 0.2;
+  const subbush = generateSubbush(size, new THREE.Vector3(0, size / 4, 0));
+  for (let i = 0; i < 10; i++) {
+    do {
+      _dummyVector.randomDirection().multiply(subbush.scale);
+    } while (_dummyVector.y > 0.1 || _dummyVector < -0.2);
+    const minibush = generateSubbush(
+      size / 2,
+      _dummyVector,
+      Math.randomRange(-0.1, 0.1)
+    );
+    bush.add(minibush);
   }
-  for (let i = 0; i < 100; i++) {
-    const leaf = new THREE.Mesh(leafG, bushMaterial);
-    bush.add(leaf);
-    const randomVec = new THREE.Vector3();
-    randomVec.randomDirection();
-    leaf.receiveShadow = false;
-    leaf.castShadow = false;
-    leaf.lookAt(randomVec);
-    leaf.position.y = 0.31;
-    leaf.position.x = 0.6 * (Math.random() - 0.5);
-    leaf.position.z = 0.6 * (Math.random() - 0.5);
-    leaf.scale.x = Math.random() / 2 + 0.5;
-    leaf.scale.y = leaf.scale.x;
-    leaf.scale.z = leaf.scale.x;
-  }
-  for (let i = 0; i < 100; i++) {
-    const leaf = new THREE.Mesh(leafG, bushMaterial);
-    bush.add(leaf);
-    const randomVec = new THREE.Vector3();
-    randomVec.randomDirection();
-    leaf.receiveShadow = false;
-    leaf.castShadow = false;
-    leaf.lookAt(randomVec);
-    leaf.position.z = 0.31;
-    leaf.position.x = 0.6 * (Math.random() - 0.5);
-    leaf.position.y = 0.6 * (Math.random() - 0.5);
-    leaf.scale.x = Math.random() / 2 + 0.5;
-    leaf.scale.y = leaf.scale.x;
-    leaf.scale.z = leaf.scale.x;
-  }
-  bush.receiveShadow = true;
-  bush.castShadow = true;
+  bush.add(subbush);
+  bush.rotateY(Math.randomRange(0, Math.PI * 2));
   return bush;
 };
 
+const tileGeometry = new THREE.BoxGeometry(0.9, 1.0, 0.9);
+
 const generateTile = (tile) => {
-  const boxGeometry = new THREE.BoxGeometry(0.9, tile.height, 0.9);
-  const box = new THREE.Mesh(boxGeometry, toonMaterial);
+  const box = new THREE.Mesh(tileGeometry, toonMaterial);
   box.position.x = tile.x;
   box.position.y = tile.height / 2 - 2;
   box.position.z = tile.y;
+  box.scale.y = tile.height;
   box.castShadow = true;
   box.receiveShadow = true;
   box.x = tile.x;
@@ -656,7 +658,7 @@ const generateTile = (tile) => {
   if (tile.hasBush) {
     const bush = generateBush();
     box.add(bush);
-    bush.position.y = (tile.height + 0.6) / 2;
+    bush.position.y = tile.height / 2;
   }
   scene.add(box);
   return box;
