@@ -41,18 +41,12 @@ const partition = (array, filterFn) => {
 
 const _dummyVector = new THREE.Vector3();
 
-const randomVector = (
-  minX = 0,
-  maxX = 1,
-  minY = 0,
-  maxY = 1,
-  minZ = 0,
-  maxZ = 1
-) => {
-  _dummyVector.x = Math.random() * (maxX - minX) + minX;
-  _dummyVector.y = Math.random() * (maxY - minY) + minY;
-  _dummyVector.z = Math.random() * (maxZ - minZ) + minZ;
-  return _dummyVector;
+const customUniform = (value, config = { attachDebug: false }) => {
+  const uniform = new THREE.Uniform(value);
+  if (config.attachDebug) {
+    uniform.attachDebug = config.attachDebug;
+  }
+  return uniform;
 };
 
 /**
@@ -471,6 +465,9 @@ const registerMaterial = (material) => {
   // Update debug menu
   for (const property in uniforms) {
     const pName = `${property}`;
+    if (!uniforms[pName].attachDebug) {
+      continue;
+    }
     // We mark all of our uniform properties with 'u' to start.
     if (`${property}`[0] === "u") {
       const debugName = `${name}_${pName}`;
@@ -482,7 +479,7 @@ const registerMaterial = (material) => {
   }
 
   updateDebugGui();
-  material.uniforms.uTime = new THREE.Uniform(0.0);
+  material.uniforms.uTime = customUniform(0.0);
 };
 
 const updateMaterialSet = () => {
@@ -497,14 +494,18 @@ const toonMaterial = new THREE.ShaderMaterial({
   fragmentShader: toonFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(
-      new THREE.Color(75 / 255, 75 / 255, 75 / 255)
-    ),
-    uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
-    uShadowThreshold: new THREE.Uniform(0.1),
-    uHalfLitThreshold: new THREE.Uniform(0.5),
-    uIsHovered: new THREE.Uniform(false),
+    uShadowColor: customUniform(new THREE.Color(75 / 255, 75 / 255, 75 / 255), {
+      attachDebug: true,
+    }),
+    uHalfLitColor: customUniform(new THREE.Color(0.5, 0.5, 0.5), {
+      attachDebug: true,
+    }),
+    uLitColor: customUniform(new THREE.Color(0.9, 0.9, 0.9), {
+      attachDebug: true,
+    }),
+    uShadowThreshold: customUniform(0.1, { attachDebug: true }),
+    uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
+    uIsHovered: customUniform(false, { attachDebug: true }),
   },
 });
 const bushMaterial = new THREE.ShaderMaterial({
@@ -513,18 +514,22 @@ const bushMaterial = new THREE.ShaderMaterial({
   fragmentShader: bushFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(
-      new THREE.Color(61 / 255, 97 / 255, 85 / 255)
+
+    uShadowColor: customUniform(new THREE.Color(61 / 255, 97 / 255, 85 / 255), {
+      attachDebug: true,
+    }),
+    uHalfLitColor: customUniform(
+      new THREE.Color(77 / 255, 125 / 255, 85 / 255),
+      {
+        attachDebug: true,
+      }
     ),
-    uHalfLitColor: new THREE.Uniform(
-      new THREE.Color(77 / 255, 125 / 255, 85 / 255)
-    ),
-    uLitColor: new THREE.Uniform(
-      new THREE.Color(124 / 255, 175 / 255, 119 / 255)
-    ),
-    uShadowThreshold: new THREE.Uniform(0.352),
-    uHalfLitThreshold: new THREE.Uniform(0.5),
-    uIsHovered: new THREE.Uniform(false),
+    uLitColor: customUniform(new THREE.Color(124 / 255, 175 / 255, 119 / 255), {
+      attachDebug: true,
+    }),
+    uShadowThreshold: customUniform(0.35, { attachDebug: true }),
+    uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
+    uIsHovered: customUniform(false, { attachDebug: true }),
     uNoise: new THREE.Uniform(
       loadTexture("noiseTexture", {
         wrapS: THREE.RepeatWrapping,
@@ -541,12 +546,18 @@ const hoveredToonMaterial = new THREE.ShaderMaterial({
   fragmentShader: toonFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Color(0.1, 0.1, 0.1)),
-    uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
-    uShadowThreshold: new THREE.Uniform(0.1),
-    uHalfLitThreshold: new THREE.Uniform(0.5),
-    uIsHovered: new THREE.Uniform(true),
+    uShadowColor: customUniform(new THREE.Color(75 / 255, 75 / 255, 75 / 255), {
+      attachDebug: true,
+    }),
+    uHalfLitColor: customUniform(new THREE.Color(0.5, 0.5, 0.5), {
+      attachDebug: true,
+    }),
+    uLitColor: customUniform(new THREE.Color(0.9, 0.9, 0.9), {
+      attachDebug: true,
+    }),
+    uShadowThreshold: customUniform(0.1, { attachDebug: true }),
+    uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
+    uIsHovered: customUniform(true, { attachDebug: true }),
   },
 });
 const waterMaterial = new THREE.ShaderMaterial({
@@ -556,15 +567,22 @@ const waterMaterial = new THREE.ShaderMaterial({
   transparent: true,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Color(0.1, 0.1, 0.1)),
-    uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
-    uWaterColor: new THREE.Uniform(new THREE.Color(0x0000ef)),
-    uShadowThreshold: new THREE.Uniform(0.1),
-    uHalfLitThreshold: new THREE.Uniform(0.5),
-    uIsHovered: new THREE.Uniform(false),
-    uWaveHeight: new THREE.Uniform(0.15),
-    uWaveFrequency: new THREE.Uniform(0.1),
+
+    uShadowColor: customUniform(new THREE.Color(75 / 255, 75 / 255, 75 / 255), {
+      attachDebug: true,
+    }),
+    uHalfLitColor: customUniform(new THREE.Color(0.5, 0.5, 0.5), {
+      attachDebug: true,
+    }),
+    uLitColor: customUniform(new THREE.Color(0.9, 0.9, 0.9), {
+      attachDebug: true,
+    }),
+    uShadowThreshold: customUniform(0.1, { attachDebug: true }),
+    uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
+    uIsHovered: customUniform(false, { attachDebug: true }),
+    uWaterColor: customUniform(new THREE.Color(0x0000ef)),
+    uWaveHeight: customUniform(0.15),
+    uWaveFrequency: customUniform(0.1),
   },
 });
 waterMaterial.name = "water";
@@ -574,13 +592,19 @@ const groundMaterial = new THREE.ShaderMaterial({
   fragmentShader: groundFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: new THREE.Uniform(new THREE.Color(0.1, 0.1, 0.1)),
-    uHalfLitColor: new THREE.Uniform(new THREE.Color(0.5, 0.5, 0.5)),
-    uLitColor: new THREE.Uniform(new THREE.Color(0.9, 0.9, 0.9)),
-    uGroundColor: new THREE.Uniform(new THREE.Color(0xefefef)),
-    uShadowThreshold: new THREE.Uniform(0.1),
-    uHalfLitThreshold: new THREE.Uniform(0.5),
-    uIsHovered: new THREE.Uniform(false),
+    uShadowColor: customUniform(new THREE.Color(75 / 255, 75 / 255, 75 / 255), {
+      attachDebug: true,
+    }),
+    uHalfLitColor: customUniform(new THREE.Color(0.5, 0.5, 0.5), {
+      attachDebug: true,
+    }),
+    uLitColor: customUniform(new THREE.Color(0.9, 0.9, 0.9), {
+      attachDebug: true,
+    }),
+    uShadowThreshold: customUniform(0.1, { attachDebug: true }),
+    uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
+    uIsHovered: customUniform(false, { attachDebug: true }),
+    uGroundColor: customUniform(new THREE.Color(0xefefef)),
   },
 });
 
