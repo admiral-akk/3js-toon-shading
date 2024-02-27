@@ -60,11 +60,11 @@ const perspectiveConfig = {
 
 const orthographicConfig = {
   type: "orthographic",
-  zoom: 5,
+  zoom: 10,
 };
 
 const cameraConfig = {
-  subtypeConfig: perspectiveConfig,
+  subtypeConfig: orthographicConfig,
   aspectRatio: 16 / 9,
   near: 0.001,
   position: new THREE.Vector3(5, 7, 5),
@@ -342,6 +342,13 @@ const universalEventHandler = (event) => {
   }
   switch (event.type) {
     case "keydown":
+      if (event.repeat) {
+        break;
+      }
+      if (event.ctrlKey && event.key === "s") {
+        event.preventDefault();
+        exportData();
+      }
       setSelect(event.key);
       break;
     case "keyup":
@@ -419,11 +426,20 @@ const debugUUIDs = new Set();
 const controllers = new Map();
 const references = new Map();
 
-const updateDebugGui = () => {
+const updateDebugGui = (debugObject) => {
   references.forEach((uniformValues, uniformName) => {
     if (controllers.has(uniformName)) {
       controllers.get(uniformName).destroy();
       controllers.delete(uniformName);
+    }
+    if (uniformName in debugObject) {
+      uniformValues.forEach((u) => {
+        if (u.value.isColor) {
+          u.value = new THREE.Color(debugObject[uniformName]);
+        } else {
+          u.value = debugObject[uniformName];
+        }
+      });
     }
     const sampleValue = uniformValues[0].value;
     debugObject[uniformName] = sampleValue;
@@ -471,6 +487,7 @@ const registerMaterial = (material) => {
     return;
   }
   debugUUIDs.add(material.uuid);
+  materials.add(material);
 
   // Update debug menu
   for (const property in uniforms) {
@@ -488,7 +505,7 @@ const registerMaterial = (material) => {
     }
   }
 
-  updateDebugGui();
+  updateDebugGui(gameData.debugObject);
   material.uniforms.uTime = customUniform(0.0);
 };
 
@@ -590,9 +607,11 @@ const waterMaterial = new THREE.ShaderMaterial({
     uShadowThreshold: customUniform(0.1, { attachDebug: true }),
     uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
     uIsHovered: customUniform(false),
-    uWaterColor: customUniform(new THREE.Color(0x0000ef)),
-    uWaveHeight: customUniform(0.15),
-    uWaveFrequency: customUniform(0.1),
+    uWaterColor: customUniform(new THREE.Color(0x0000ef), {
+      attachDebug: true,
+    }),
+    uWaveHeight: customUniform(0.15, { attachDebug: true }),
+    uWaveFrequency: customUniform(0.1, { attachDebug: true }),
   },
 });
 waterMaterial.name = "water";
@@ -647,9 +666,6 @@ const setSelect = (num) => {
       break;
     case "2":
       selectionConfig.current = "bush";
-      break;
-    case "3":
-      exportData();
       break;
   }
 };
