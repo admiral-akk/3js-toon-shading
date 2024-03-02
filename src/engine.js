@@ -271,6 +271,46 @@ class RenderManager {
   }
 }
 
+class InputManager {
+  constructor() {
+    this.mouseState = {
+      pos: null,
+      buttons: null,
+    };
+    this.sizes = null;
+
+    this.handleMouseEvent = (event) => {
+      const { sizes } = this;
+      if (event.target.className !== "webgl") {
+        return;
+      }
+      this.mouseState.pos = new THREE.Vector2(
+        ((event.clientX - sizes.horizontalOffset) / sizes.width) * 2 - 1,
+        -((event.clientY - sizes.verticalOffset) / sizes.height) * 2 + 1
+      );
+
+      this.mouseState.buttons = event.buttons;
+    };
+
+    window.addEventListener("pointerdown", this.handleMouseEvent);
+    window.addEventListener("pointerup", this.handleMouseEvent);
+    window.addEventListener("pointermove", this.handleMouseEvent);
+
+    window.addEventListener(
+      "contextmenu",
+      (ev) => {
+        ev.preventDefault();
+        return false;
+      },
+      false
+    );
+  }
+  setSize(width, height) {
+    this.sizes.width = width;
+    this.sizes.height = height;
+  }
+}
+
 export class KubEngine {
   constructor() {
     THREE.Cache.enabled = true;
@@ -282,8 +322,9 @@ export class KubEngine {
     const audioManager = new AudioManager(loadingManager);
     const modelManager = new ModelManager(loadingManager);
     const renderManager = new RenderManager();
-
+    const inputManager = new InputManager();
     const windowManager = new WindowManager(renderManager.camera, (sizes) => {
+      inputManager.sizes = sizes;
       renderManager.renderer.setSize(sizes.width, sizes.height);
       renderManager.composer.setSize(sizes.width, sizes.height);
       renderManager.renderer.setPixelRatio(
@@ -307,5 +348,6 @@ export class KubEngine {
     this.composer = renderManager.composer;
     this.camera = renderManager.camera;
     this.sizes = windowManager.sizes;
+    this.inputManager = inputManager;
   }
 }

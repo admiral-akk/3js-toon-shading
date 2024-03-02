@@ -90,29 +90,6 @@ const updateZoom = () => {
 };
 
 /**
- * Input Manager
- */
-
-const inputManager = {
-  mousePos: null,
-  mouseButtons: null,
-  mouseButtonState: null,
-};
-
-/**
- * Mouse tracking
- */
-
-const mousePos = (event) => {
-  return new THREE.Vector2(
-    ((event.clientX - engine.sizes.horizontalOffset) / engine.sizes.width) * 2 -
-      1,
-    -((event.clientY - engine.sizes.verticalOffset) / engine.sizes.height) * 2 +
-      1
-  );
-};
-
-/**
  * Event Handling
  */
 const eventLog = [];
@@ -161,18 +138,20 @@ const universalEventHandler = (event) => {
     case "pointerdown":
     case "pointerup":
     case "pointermove":
-      if (event.target.className !== "webgl") {
-        return;
-      }
-      inputManager.mousePos = mousePos(event);
-      inputManager.mouseButtons = event.buttons;
-      inputManager.mouseButtonState = event.type;
-      if (event.buttons === 1) {
-        addCube();
-      }
-      if (event.buttons === 2) {
-        removeCube();
-      }
+      break;
+    default:
+      break;
+  }
+};
+
+const inputLook = () => {
+  const { buttons } = engine.inputManager.mouseState;
+  switch (buttons) {
+    case 1:
+      addCube();
+      break;
+    case 2:
+      removeCube();
       break;
     default:
       break;
@@ -185,6 +164,9 @@ for (const key in canvas) {
     switch (key) {
       case "onresize":
       case "onorientationchange":
+      case "pointerdown":
+      case "pointerup":
+      case "pointermove":
         continue;
       default:
         const eventType = key.substring(2);
@@ -194,16 +176,6 @@ for (const key in canvas) {
     }
   }
 }
-
-// Capture right clicks.
-window.addEventListener(
-  "contextmenu",
-  (ev) => {
-    ev.preventDefault();
-    return false;
-  },
-  false
-);
 
 /**
  * Materials
@@ -559,10 +531,11 @@ raycaster.layers.set(1);
 selectionPlane.layers.enable(1);
 
 const targetCoordinate = () => {
-  if (!inputManager.mousePos) {
+  const { pos } = engine.inputManager.mouseState;
+  if (!pos) {
     return;
   }
-  raycaster.setFromCamera(inputManager.mousePos, engine.camera);
+  raycaster.setFromCamera(pos, engine.camera);
 
   const intersects = raycaster.intersectObjects(engine.scene.children);
 
@@ -811,6 +784,7 @@ const tick = () => {
   }
   // update controls
   // controls.update();
+  inputLook();
 
   // Render engine.scene
   rotateBox(timeTracker.elapsedTime);
