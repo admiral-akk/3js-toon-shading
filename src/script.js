@@ -2,7 +2,6 @@ import "./style.css";
 import * as THREE from "three";
 import GUI from "lil-gui";
 import { gsap } from "gsap";
-import Stats from "stats-js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import loadingVertexShader from "./shaders/loading/vertex.glsl";
 import loadingFragmentShader from "./shaders/loading/fragment.glsl";
@@ -37,10 +36,6 @@ const engine = new KubEngine();
  */
 const ui = document.querySelector("div.overlay");
 const canvas = document.querySelector("canvas.webgl");
-
-var stats = new Stats();
-stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-document.body.appendChild(stats.dom);
 
 /**
  * Data
@@ -735,7 +730,7 @@ makeDirectionalLight(new THREE.Vector3(-10, -10, 5));
  */
 const clock = new THREE.Clock();
 const tick = () => {
-  stats.begin();
+  engine.statsManager.stats.begin();
   updateHighlight();
   updateMaterialSet();
   if (timeTracker.enabled) {
@@ -759,7 +754,7 @@ const tick = () => {
   // Call tick again on the next frame
   window.requestAnimationFrame(tick);
   engine.endLoop();
-  stats.end();
+  engine.statsManager.stats.end();
 };
 
 initLoadingAnimation();

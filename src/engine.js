@@ -5,6 +5,7 @@
  */
 
 import * as THREE from "three";
+import Stats from "stats-js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
@@ -428,6 +429,15 @@ class TimeManager {
   }
 }
 
+class StatsManager {
+  constructor() {
+    const stats = new Stats();
+    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+    document.body.appendChild(stats.dom);
+    this.stats = stats;
+  }
+}
+
 export class KubEngine {
   constructor() {
     THREE.Cache.enabled = true;
@@ -451,6 +461,9 @@ export class KubEngine {
     const timeManager = new TimeManager();
     register(timeManager, inputManager);
 
+    const statsManager = new StatsManager();
+
+    this.statsManager = statsManager;
     this.timeManager = timeManager;
     this.loadingManager = loadingManager;
     this.loadTexture = textureManager.load;
