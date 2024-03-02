@@ -20,31 +20,13 @@ import groundVertexShader from "./shaders/ground/vertex.glsl";
 import groundFragmentShader from "./shaders/ground/fragment.glsl";
 import gameData from "./gameData.json";
 import { uniform } from "three/examples/jsm/nodes/core/UniformNode";
+import { partition, customUniform } from "./helper.js";
 import { KubEngine } from "./engine.js";
 
 /**
  * Helpers
  */
-Math.clamp = (num, min, max) => Math.max(min, Math.min(num, max));
-
-Math.randomRange = (min = 0, max = 1) => Math.random() * (max - min) + min;
-
-const partition = (array, filterFn) => {
-  const pass = [];
-  const fail = [];
-  array.forEach((e, idx, arr) => (filterFn(e, idx, arr) ? pass : fail).push(e));
-  return [pass, fail];
-};
-
 const _dummyVector = new THREE.Vector3();
-
-const customUniform = (value, config = { attachDebug: false }) => {
-  const uniform = new THREE.Uniform(value);
-  if (config.attachDebug) {
-    uniform.attachDebug = config.attachDebug;
-  }
-  return uniform;
-};
 
 /**
  *
