@@ -87,6 +87,7 @@ class TextureManager {
 
 class AudioManager {
   constructor(loadingManager) {
+    this.audioListener = new THREE.AudioListener();
     this.audioLoader = new THREE.AudioLoader(loadingManager);
     this.audioPool = [];
     this.buffers = new Map();
@@ -97,14 +98,14 @@ class AudioManager {
       });
     };
 
-    this.play = (path, listener) => {
+    this.play = (path) => {
       if (!this.buffers.has(path)) {
         return;
       }
       const buffer = this.buffers.get(path);
       const audio = this.audioPool.filter((audio) => !audio.isPlaying).pop();
       if (!audio) {
-        audio = new THREE.Audio(listener);
+        audio = new THREE.Audio(this.audioListener);
       }
       audio.setBuffer(buffer);
       audio.play();
@@ -271,16 +272,18 @@ class WindowManager {
 class RenderManager {
   constructor() {
     const canvas = document.querySelector("canvas.webgl");
-    this.scene = new THREE.Scene();
+    const scene = new THREE.Scene();
     const camera = generateCamera(cameraConfig);
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setClearColor("#201919");
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     const composer = new EffectComposer(renderer);
-    const renderPass = new RenderPass(this.scene, camera);
+    const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
+    scene.add(camera);
 
+    this.scene = scene;
     this.renderer = renderer;
     this.composer = composer;
     this.camera = camera;
@@ -399,6 +402,8 @@ export class KubEngine {
     const audioManager = new AudioManager(loadingManager);
     const modelManager = new ModelManager(loadingManager);
     const renderManager = new RenderManager();
+    renderManager.camera.add(audioManager.audioListener);
+
     const inputManager = new InputManager();
     const windowManager = new WindowManager(renderManager.camera);
 

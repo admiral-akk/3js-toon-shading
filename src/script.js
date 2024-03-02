@@ -37,9 +37,6 @@ const engine = new KubEngine();
  */
 const ui = document.querySelector("div.overlay");
 const canvas = document.querySelector("canvas.webgl");
-const listener = new THREE.AudioListener();
-engine.camera.add(listener);
-engine.scene.add(engine.camera);
 
 var stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
