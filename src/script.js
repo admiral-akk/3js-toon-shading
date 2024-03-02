@@ -35,7 +35,6 @@ const engine = new KubEngine();
 /**
  * Core objects
  */
-const container = document.querySelector("div.container");
 const ui = document.querySelector("div.overlay");
 const canvas = document.querySelector("canvas.webgl");
 const listener = new THREE.AudioListener();
@@ -104,19 +103,7 @@ const universalEventHandler = (event) => {
       break;
     case "resize":
     case "orientationchange":
-      break;
     case "dblclick":
-      if (event.target.className !== "webgl") {
-        return;
-      }
-      const fullscreenElement =
-        document.fullscreenElement || document.webkitFullscreenElement;
-
-      if (fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        container.requestFullscreen();
-      }
       break;
     case "wheel":
       engine.camera.customZoom = Math.clamp(
@@ -177,6 +164,7 @@ for (const key in canvas) {
       case "pointerup":
       case "keydown":
       case "keyup":
+      case "dblclick":
       case "pointermove":
         continue;
       default:

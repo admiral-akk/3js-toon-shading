@@ -224,6 +224,7 @@ class WindowManager {
     };
     this.listeners = [];
 
+    const container = document.querySelector("div.container");
     const canvasContainer = document.querySelector("div.relative");
 
     this.update = () => {
@@ -251,6 +252,19 @@ class WindowManager {
 
     window.addEventListener("resize", this.update);
     window.addEventListener("orientationchange", this.update);
+    window.addEventListener("dblclick", (event) => {
+      if (event.target.className !== "webgl") {
+        return;
+      }
+      const fullscreenElement =
+        document.fullscreenElement || document.webkitFullscreenElement;
+
+      if (fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        container.requestFullscreen();
+      }
+    });
   }
 }
 
