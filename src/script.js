@@ -32,33 +32,6 @@ const _dummyVector = new THREE.Vector3();
 const engine = new KubEngine();
 
 /**
- * Core objects
- */
-const ui = document.querySelector("div.overlay");
-const canvas = document.querySelector("canvas.webgl");
-
-/**
- * Data
- */
-
-const importData = () => {
-  return gameData;
-};
-
-const exportData = () => {
-  var link = document.createElement("a");
-  const fileName = "gameData.json";
-  var myFile = new Blob([JSON.stringify(gameData)], {
-    type: "application/json",
-  });
-  link.download = fileName;
-  link.setAttribute("href", window.URL.createObjectURL(myFile));
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-/**
  * Event Handling
  */
 
@@ -84,7 +57,7 @@ const applyInputToGame = () => {
   const s = pressedKeys.get("s");
 
   if (s && ctrl && (s.heldUserTime == 0 || ctrl.heldUserTime == 0)) {
-    exportData();
+    engine.editorManager.exportData();
   }
   if (pressedKeys.has("1")) {
     setSelect("1");
@@ -93,28 +66,6 @@ const applyInputToGame = () => {
     setSelect("2");
   }
 };
-
-const events = new Set();
-for (const key in canvas) {
-  if (/^on/.test(key)) {
-    switch (key) {
-      case "wheel":
-      case "onresize":
-      case "onorientationchange":
-      case "pointerdown":
-      case "pointerup":
-      case "keydown":
-      case "keyup":
-      case "dblclick":
-      case "pointermove":
-        continue;
-      default:
-        const eventType = key.substring(2);
-        events.add(eventType);
-        break;
-    }
-  }
-}
 
 /**
  * Materials
@@ -369,7 +320,7 @@ const setSelect = (num) => {
 };
 
 const gameMap = {
-  data: importData(),
+  data: engine.editorManager.data,
   graphics: {
     tiles: [],
   },

@@ -11,6 +11,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 import { FontLoader } from "three/addons/loaders/FontLoader.js";
+import gameData from "./gameData.json";
 
 /**
  * There are going to be a few components here.
@@ -349,12 +350,14 @@ class InputManager {
     this.listeners = [];
 
     window.addEventListener("keydown", (event) => {
+      event.preventDefault();
       const { pressedKeys } = this.keyState;
       if (!pressedKeys.has(event.key)) {
         pressedKeys.set(event.key, { heldGameTime: 0, heldUserTime: 0 });
       }
     });
     window.addEventListener("keyup", (event) => {
+      event.preventDefault();
       const { pressedKeys } = this.keyState;
       if (pressedKeys.has(event.key)) {
         pressedKeys.delete(event.key);
@@ -438,6 +441,25 @@ class StatsManager {
   }
 }
 
+class EditorManager {
+  constructor() {
+    this.data = gameData;
+  }
+
+  exportData() {
+    var link = document.createElement("a");
+    const fileName = "gameData.json";
+    var myFile = new Blob([JSON.stringify(this.data)], {
+      type: "application/json",
+    });
+    link.download = fileName;
+    link.setAttribute("href", window.URL.createObjectURL(myFile));
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+}
+
 export class KubEngine {
   constructor() {
     THREE.Cache.enabled = true;
@@ -463,6 +485,8 @@ export class KubEngine {
 
     const statsManager = new StatsManager();
 
+    const editorManager = new EditorManager();
+
     this.statsManager = statsManager;
     this.timeManager = timeManager;
     this.loadingManager = loadingManager;
@@ -480,14 +504,15 @@ export class KubEngine {
     this.camera = renderManager.camera;
     this.sizes = windowManager.sizes;
     this.inputManager = inputManager;
+    this.editorManager = editorManager;
   }
 
   update() {
-    this.timeManager.update();
     this.renderManager.handleMouse(this.inputManager.mouseState);
   }
 
   endLoop() {
     this.inputManager.endLoop();
+    this.timeManager.update();
   }
 }
