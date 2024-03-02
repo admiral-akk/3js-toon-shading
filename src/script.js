@@ -59,27 +59,6 @@ const exportData = () => {
 };
 
 /**
- * Window size
- */
-const updateZoom = () => {
-  const { customZoom, aspect } = engine.camera;
-  if (engine.camera.isOrthographicCamera) {
-    const height = customZoom;
-    const width = aspect * height;
-
-    engine.camera.left = -width / 2;
-    engine.camera.right = width / 2;
-    engine.camera.top = height / 2;
-    engine.camera.bottom = -height / 2;
-  } else if (engine.camera.isPerspectiveCamera) {
-    engine.camera.position.multiplyScalar(
-      customZoom / engine.camera.position.length()
-    );
-  }
-  engine.camera.updateProjectionMatrix();
-};
-
-/**
  * Event Handling
  */
 
@@ -733,15 +712,11 @@ const tick = () => {
   engine.statsManager.stats.begin();
   updateHighlight();
   updateMaterialSet();
-  if (timeTracker.enabled) {
-    timeTracker.elapsedTime =
-      timeTracker.elapsedTime + debugObject.timeSpeed * clock.getDelta();
-    materials.forEach((material) => {
-      if (material.uniforms && material.uniforms.uTime) {
-        material.uniforms.uTime.value = timeTracker.elapsedTime;
-      }
-    });
-  }
+  materials.forEach((material) => {
+    if (material.uniforms && material.uniforms.uTime) {
+      material.uniforms.uTime.value = engine.timeManager.time.gameTime;
+    }
+  });
   engine.update();
   // update controls
   // controls.update();

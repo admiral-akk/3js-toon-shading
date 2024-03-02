@@ -418,10 +418,10 @@ class TimeManager {
 
     this.update = () => {
       const deltaTime = clock.getDelta();
-      this.userTime += deltaTime;
-      this.gameTime += deltaTime * this.gameSpeed;
-      this.userDeltaTime = deltaTime;
-      this.gameDeltaTime = deltaTime * this.gameSpeed;
+      this.time.userTime += deltaTime;
+      this.time.gameTime += deltaTime * this.gameSpeed;
+      this.time.userDeltaTime = deltaTime;
+      this.time.gameDeltaTime = deltaTime * this.gameSpeed;
       this.listeners.forEach((v) => {
         v.updateTime(this.time);
       });
