@@ -36,7 +36,6 @@ const engine = new KubEngine();
  * Core objects
  */
 const container = document.querySelector("div.container");
-const canvasContainer = document.querySelector("div.relative");
 const ui = document.querySelector("div.overlay");
 const canvas = document.querySelector("canvas.webgl");
 const listener = new THREE.AudioListener();
@@ -71,13 +70,6 @@ const exportData = () => {
 /**
  * Window size
  */
-const sizes = {
-  width: window.innerWidth,
-  height: window.innerHeight,
-  verticalOffset: 0,
-  horizontalOffset: 0,
-};
-
 const updateZoom = () => {
   const { customZoom, aspect } = engine.camera;
   if (engine.camera.isOrthographicengine.camera) {
@@ -97,28 +89,6 @@ const updateZoom = () => {
   engine.camera.updateProjectionMatrix();
 };
 
-const updateSize = () => {
-  if (window.innerHeight * engine.camera.aspect > window.innerWidth) {
-    sizes.width = window.innerWidth;
-    sizes.height = window.innerWidth / engine.camera.aspect;
-    sizes.verticalOffset = (window.innerHeight - sizes.height) / 2;
-    sizes.horizontalOffset = 0;
-  } else {
-    sizes.width = window.innerHeight * engine.camera.aspect;
-    sizes.height = window.innerHeight;
-    sizes.verticalOffset = 0;
-    sizes.horizontalOffset = (window.innerWidth - sizes.width) / 2;
-  }
-  canvasContainer.style.top = sizes.verticalOffset.toString() + "px";
-  canvasContainer.style.left = sizes.horizontalOffset.toString() + "px";
-
-  engine.renderer.setSize(sizes.width, sizes.height);
-  engine.composer.setSize(sizes.width, sizes.height);
-  engine.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  engine.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-};
-updateSize();
-
 /**
  * Input Manager
  */
@@ -135,8 +105,10 @@ const inputManager = {
 
 const mousePos = (event) => {
   return new THREE.Vector2(
-    ((event.clientX - sizes.horizontalOffset) / sizes.width) * 2 - 1,
-    -((event.clientY - sizes.verticalOffset) / sizes.height) * 2 + 1
+    ((event.clientX - engine.sizes.horizontalOffset) / engine.sizes.width) * 2 -
+      1,
+    -((event.clientY - engine.sizes.verticalOffset) / engine.sizes.height) * 2 +
+      1
   );
 };
 
@@ -164,7 +136,6 @@ const universalEventHandler = (event) => {
       break;
     case "resize":
     case "orientationchange":
-      updateSize();
       break;
     case "dblclick":
       if (event.target.className !== "webgl") {

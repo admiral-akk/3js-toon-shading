@@ -214,6 +214,44 @@ const generateCamera = ({ aspectRatio, subtypeConfig, near, position }) => {
   return camera;
 };
 
+class WindowManager {
+  constructor(camera, sizesUpdated) {
+    this.sizes = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      verticalOffset: 0,
+      horizontalOffset: 0,
+    };
+
+    const canvasContainer = document.querySelector("div.relative");
+
+    this.updateSize = () => {
+      if (window.innerHeight * camera.aspect > window.innerWidth) {
+        this.sizes.width = window.innerWidth;
+        this.sizes.height = window.innerWidth / camera.aspect;
+        this.sizes.verticalOffset =
+          (window.innerHeight - this.sizes.height) / 2;
+        this.sizes.horizontalOffset = 0;
+      } else {
+        this.sizes.width = window.innerHeight * camera.aspect;
+        this.sizes.height = window.innerHeight;
+        this.sizes.verticalOffset = 0;
+        this.sizes.horizontalOffset =
+          (window.innerWidth - this.sizes.width) / 2;
+      }
+      canvasContainer.style.top = this.sizes.verticalOffset.toString() + "px";
+      canvasContainer.style.left =
+        this.sizes.horizontalOffset.toString() + "px";
+
+      sizesUpdated(this.sizes);
+    };
+
+    this.updateSize();
+    window.addEventListener("onresize", this.updateSize);
+    window.addEventListener("onorientationchange", this.updateSize);
+  }
+}
+
 class RenderManager {
   constructor() {
     const canvas = document.querySelector("canvas.webgl");
@@ -245,6 +283,17 @@ export class KubEngine {
     const modelManager = new ModelManager(loadingManager);
     const renderManager = new RenderManager();
 
+    const windowManager = new WindowManager(renderManager.camera, (sizes) => {
+      renderManager.renderer.setSize(sizes.width, sizes.height);
+      renderManager.composer.setSize(sizes.width, sizes.height);
+      renderManager.renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+      );
+      renderManager.composer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+      );
+    });
+
     this.loadingManager = loadingManager;
     this.loadTexture = textureManager.load;
     this.loadFont = fontManager.load;
@@ -257,5 +306,6 @@ export class KubEngine {
     this.renderer = renderManager.renderer;
     this.composer = renderManager.composer;
     this.camera = renderManager.camera;
+    this.sizes = windowManager.sizes;
   }
 }
