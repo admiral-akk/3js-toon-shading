@@ -87,31 +87,6 @@ const updateZoom = () => {
 /**
  * Event Handling
  */
-const eventLog = [];
-const loggedEvents = new Set(["pointerdown", "pointerup"]);
-const universalEventHandler = (event) => {
-  if (loggedEvents.has(event.type)) {
-    eventLog.push([timeTracker.elapsedTime, event]);
-  }
-  switch (event.type) {
-    case "keydown":
-      break;
-    case "keyup":
-      break;
-    case "resize":
-    case "orientationchange":
-    case "dblclick":
-      break;
-    case "wheel":
-      break;
-    case "pointerdown":
-    case "pointerup":
-    case "pointermove":
-      break;
-    default:
-      break;
-  }
-};
 
 const applyInputToGame = () => {
   if (!document.hasFocus()) {
@@ -162,7 +137,6 @@ for (const key in canvas) {
       default:
         const eventType = key.substring(2);
         events.add(eventType);
-        window.addEventListener(eventType, universalEventHandler);
         break;
     }
   }

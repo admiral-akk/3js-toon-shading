@@ -269,24 +269,6 @@ class WindowManager {
   }
 }
 
-const updateZoom = () => {
-  const { customZoom, aspect } = engine.camera;
-  if (engine.camera.isOrthographicCamera) {
-    const height = customZoom;
-    const width = aspect * height;
-
-    engine.camera.left = -width / 2;
-    engine.camera.right = width / 2;
-    engine.camera.top = height / 2;
-    engine.camera.bottom = -height / 2;
-  } else if (engine.camera.isPerspectiveCamera) {
-    engine.camera.position.multiplyScalar(
-      customZoom / engine.camera.position.length()
-    );
-  }
-  engine.camera.updateProjectionMatrix();
-};
-
 class RenderManager {
   constructor() {
     const canvas = document.querySelector("canvas.webgl");
@@ -331,7 +313,6 @@ class RenderManager {
   }
 
   handleMouse({ mouseWheel: { deltaY } }) {
-    console.log("HELK");
     if (!deltaY) {
       return;
     }
