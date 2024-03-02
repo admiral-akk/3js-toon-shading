@@ -144,7 +144,7 @@ const universalEventHandler = (event) => {
   }
 };
 
-const inputLook = () => {
+const applyInputToGame = () => {
   const { buttons } = engine.inputManager.mouseState;
   switch (buttons) {
     case 1:
@@ -784,7 +784,7 @@ const tick = () => {
   }
   // update controls
   // controls.update();
-  inputLook();
+  applyInputToGame();
 
   // Render engine.scene
   rotateBox(timeTracker.elapsedTime);
