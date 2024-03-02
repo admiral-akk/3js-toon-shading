@@ -140,7 +140,6 @@ THREE.Cache.enabled = true;
 const loadingManager = new THREE.LoadingManager();
 loadingManager.hasFiles = false;
 loadingManager.onStart = () => (loadingManager.hasFiles = true);
-const textureLoader = new THREE.TextureLoader(loadingManager);
 const dracoLoader = new DRACOLoader(loadingManager);
 const audioLoader = new THREE.AudioLoader(loadingManager);
 const gltfLoader = new GLTFLoader(loadingManager);
@@ -170,39 +169,9 @@ const exportData = () => {
 };
 
 /**
- * Textures
- */
-const textures = new Map();
-
-const loadTextureFromUrl = (url) => {
-  const texture = textureLoader.load(url);
-  textures.set(url, texture);
-  return texture;
-};
-
-const loadTexture = (name, config, fileExt = "png") => {
-  const texture = textureLoader.load(`./texture/${name}.${fileExt}`);
-  textures.set(name, texture);
-  for (const param in config) {
-    texture[`${param}`] = config.param;
-  }
-  return texture;
-};
-
-/**
- * Fonts
- */
-const fonts = new Map();
-
-const loadFont = (name) => {
-  fontLoader.load(`./fonts/${name}.json`, function (font) {
-    fonts.set(name, font);
-  });
-};
-
-/**
  * Audio
  */
+
 const audioPool = [];
 const buffers = new Map();
 

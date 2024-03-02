@@ -57,61 +57,17 @@ export const partition = (array, filterFn) => {
   return [pass, fail];
 };
 
-class ContentLoader {
-  constructor() {
-    THREE.Cache.enabled = true;
-    const loadingManager = new THREE.LoadingManager();
-    loadingManager.hasFiles = false;
-    loadingManager.onStart = () => (loadingManager.hasFiles = true);
-    const textureLoader = new THREE.TextureLoader(loadingManager);
-    const dracoLoader = new DRACOLoader(loadingManager);
-    const audioLoader = new THREE.AudioLoader(loadingManager);
-    const gltfLoader = new GLTFLoader(loadingManager);
-    const fontLoader = new FontLoader(loadingManager);
-    gltfLoader.setDRACOLoader(dracoLoader);
-    dracoLoader.setDecoderPath("./draco/gltf/");
-    this.loadingManager = loadingManager;
-    this.textureLoader = textureLoader;
-    this.gltfLoader = gltfLoader;
-    this.fontLoader = fontLoader;
-    this.audioLoader = audioLoader;
-    this.models = new Map();
-  }
+class FontManager {
+  constructor(loadingManager) {
+    this.textureLoader = new THREE.TextureLoader(loadingManager);
 
-  load(path, ext, config = {}) {
-    let content;
-    switch (ext) {
-      case "png":
-      case "jpg":
-        content = textureLoader.load(path);
-        break;
-      case "glb":
-        if (this.models.has(path)) {
-          return this.models[path];
-        }
-        gltfLoader.load(path, (data) => {
-          const model = data.scene;
-          if (config.material) {
-            model.traverse(function (child) {
-              if (child instanceof THREE.Mesh) {
-                child.material = config.material;
-              }
-            });
-          }
-          model.animations = data.animations;
-        });
-        break;
-      case "mp3":
-        break;
-      case "typeface.json":
-        break;
-      default:
-        return null;
-    }
-    for (const param in config) {
-      content[`${param}`] = config.param;
-    }
-    return content;
+    this.fonts = new Map();
+    this.load = (path) => {
+      fontLoader.load(`path`, function (font) {
+        fonts.set(path, font);
+      });
+    };
+    this.get = (path) => this.fonts.get(path);
   }
 }
 
@@ -136,9 +92,10 @@ export class KubEngine {
     loadingManager.hasFiles = false;
     loadingManager.onStart = () => (loadingManager.hasFiles = true);
     const textureManager = new TextureManager(loadingManager);
+    const fontManager = new FontManager(loadingManager);
 
-    this.loadingManager = loadingManager;
-    console.log(textureManager);
     this.loadTexture = textureManager.load;
+    this.loadFont = fontManager.load;
+    this.getFont = fontManager.get;
   }
 }
