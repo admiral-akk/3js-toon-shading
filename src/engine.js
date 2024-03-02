@@ -215,17 +215,18 @@ const generateCamera = ({ aspectRatio, subtypeConfig, near, position }) => {
 };
 
 class WindowManager {
-  constructor(camera, sizesUpdated) {
+  constructor(camera) {
     this.sizes = {
       width: window.innerWidth,
       height: window.innerHeight,
       verticalOffset: 0,
       horizontalOffset: 0,
     };
+    this.listeners = [];
 
     const canvasContainer = document.querySelector("div.relative");
 
-    this.updateSize = () => {
+    this.update = () => {
       if (window.innerHeight * camera.aspect > window.innerWidth) {
         this.sizes.width = window.innerWidth;
         this.sizes.height = window.innerWidth / camera.aspect;
@@ -243,12 +244,13 @@ class WindowManager {
       canvasContainer.style.left =
         this.sizes.horizontalOffset.toString() + "px";
 
-      sizesUpdated(this.sizes);
+      this.listeners.forEach((l) => {
+        l.updateSize(this.sizes);
+      });
     };
 
-    window.addEventListener("resize", this.updateSize);
-    window.addEventListener("orientationchange", this.updateSize);
-    this.updateSize();
+    window.addEventListener("resize", this.update);
+    window.addEventListener("orientationchange", this.update);
   }
 }
 
@@ -269,17 +271,51 @@ class RenderManager {
     this.composer = composer;
     this.camera = camera;
   }
+
+  updateSize({ width, height }) {
+    this.renderer.setSize(width, height);
+    this.composer.setSize(width, height);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  }
 }
 
 class InputManager {
+  updateTime({ userDeltaTime, gameDeltaTime }) {
+    this.keyState.pressedKeys.forEach((v) => {
+      v.heldUserTime += userDeltaTime;
+      v.heldGameTime += gameDeltaTime;
+    });
+  }
+
   constructor() {
     this.mouseState = {
       pos: null,
       buttons: null,
+      mouseWheel: {
+        deltaY: null,
+      },
     };
-    this.sizes = null;
+    this.keyState = {
+      pressedKeys: new Map(),
+    };
+    this.sizes = { width: 1, height: 1 };
+    this.listeners = [];
 
-    this.handleMouseEvent = (event) => {
+    window.addEventListener("keydown", (event) => {
+      const { pressedKeys } = this.keyState;
+      if (!pressedKeys.has(event.key)) {
+        pressedKeys.set(event.key, { heldGameTime: 0, heldUserTime: 0 });
+      }
+    });
+    window.addEventListener("keyup", (event) => {
+      const { pressedKeys } = this.keyState;
+      if (pressedKeys.has(event.key)) {
+        pressedKeys.delete(event.key);
+      }
+    });
+
+    const handleMouseEvent = (event) => {
       const { sizes } = this;
       if (event.target.className !== "webgl") {
         return;
@@ -292,9 +328,9 @@ class InputManager {
       this.mouseState.buttons = event.buttons;
     };
 
-    window.addEventListener("pointerdown", this.handleMouseEvent);
-    window.addEventListener("pointerup", this.handleMouseEvent);
-    window.addEventListener("pointermove", this.handleMouseEvent);
+    window.addEventListener("pointerdown", handleMouseEvent);
+    window.addEventListener("pointerup", handleMouseEvent);
+    window.addEventListener("pointermove", handleMouseEvent);
 
     window.addEventListener(
       "contextmenu",
@@ -305,9 +341,36 @@ class InputManager {
       false
     );
   }
-  setSize(width, height) {
-    this.sizes.width = width;
-    this.sizes.height = height;
+
+  updateSize(sizes) {
+    this.sizes = sizes;
+  }
+}
+
+const register = (provider, listener) => provider.listeners.push(listener);
+
+class TimeManager {
+  constructor() {
+    const clock = new THREE.Clock();
+    this.gameSpeed = 1;
+    this.time = {
+      userTime: 0,
+      gameTime: 0,
+      userDeltaTime: 0,
+      gameDeltaTime: 0,
+    };
+    this.listeners = [];
+
+    this.update = () => {
+      const deltaTime = clock.getDelta();
+      this.userTime += deltaTime;
+      this.gameTime += deltaTime * this.gameSpeed;
+      this.userDeltaTime = deltaTime;
+      this.gameDeltaTime = deltaTime * this.gameSpeed;
+      this.listeners.forEach((v) => {
+        v.updateTime(this.time);
+      });
+    };
   }
 }
 
@@ -323,18 +386,16 @@ export class KubEngine {
     const modelManager = new ModelManager(loadingManager);
     const renderManager = new RenderManager();
     const inputManager = new InputManager();
-    const windowManager = new WindowManager(renderManager.camera, (sizes) => {
-      inputManager.sizes = sizes;
-      renderManager.renderer.setSize(sizes.width, sizes.height);
-      renderManager.composer.setSize(sizes.width, sizes.height);
-      renderManager.renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio, 2)
-      );
-      renderManager.composer.setPixelRatio(
-        Math.min(window.devicePixelRatio, 2)
-      );
-    });
+    const windowManager = new WindowManager(renderManager.camera);
 
+    register(windowManager, inputManager);
+    register(windowManager, renderManager);
+    windowManager.update();
+
+    const timeManager = new TimeManager();
+    register(timeManager, inputManager);
+
+    this.timeManager = timeManager;
     this.loadingManager = loadingManager;
     this.loadTexture = textureManager.load;
     this.loadFont = fontManager.load;
@@ -349,5 +410,9 @@ export class KubEngine {
     this.camera = renderManager.camera;
     this.sizes = windowManager.sizes;
     this.inputManager = inputManager;
+  }
+
+  update() {
+    this.timeManager.update();
   }
 }

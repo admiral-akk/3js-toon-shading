@@ -72,16 +72,15 @@ const exportData = () => {
  */
 const updateZoom = () => {
   const { customZoom, aspect } = engine.camera;
-  if (engine.camera.isOrthographicengine.camera) {
+  if (engine.camera.isOrthographicCamera) {
     const height = customZoom;
     const width = aspect * height;
-    console.log(customZoom, height, width);
 
     engine.camera.left = -width / 2;
     engine.camera.right = width / 2;
     engine.camera.top = height / 2;
     engine.camera.bottom = -height / 2;
-  } else if (engine.camera.isPerspectiveengine.camera) {
+  } else if (engine.camera.isPerspectiveCamera) {
     engine.camera.position.multiplyScalar(
       customZoom / engine.camera.position.length()
     );
@@ -100,14 +99,6 @@ const universalEventHandler = (event) => {
   }
   switch (event.type) {
     case "keydown":
-      if (event.repeat) {
-        break;
-      }
-      if (event.ctrlKey && event.key === "s") {
-        event.preventDefault();
-        exportData();
-      }
-      setSelect(event.key);
       break;
     case "keyup":
       break;
@@ -145,7 +136,12 @@ const universalEventHandler = (event) => {
 };
 
 const applyInputToGame = () => {
-  const { buttons } = engine.inputManager.mouseState;
+  if (!document.hasFocus()) {
+    return;
+  }
+  const { inputManager } = engine;
+  const { buttons } = inputManager.mouseState;
+  const { pressedKeys } = inputManager.keyState;
   switch (buttons) {
     case 1:
       addCube();
@@ -155,6 +151,19 @@ const applyInputToGame = () => {
       break;
     default:
       break;
+  }
+
+  const ctrl = pressedKeys.get("Control");
+  const s = pressedKeys.get("s");
+
+  if (s && ctrl && (s.heldUserTime == 0 || ctrl.heldUserTime == 0)) {
+    exportData();
+  }
+  if (pressedKeys.has("1")) {
+    setSelect("1");
+  }
+  if (pressedKeys.has("2")) {
+    setSelect("2");
   }
 };
 
@@ -166,6 +175,8 @@ for (const key in canvas) {
       case "onorientationchange":
       case "pointerdown":
       case "pointerup":
+      case "keydown":
+      case "keyup":
       case "pointermove":
         continue;
       default:
@@ -782,6 +793,7 @@ const tick = () => {
       }
     });
   }
+  engine.update();
   // update controls
   // controls.update();
   applyInputToGame();
