@@ -103,12 +103,6 @@ const universalEventHandler = (event) => {
     case "dblclick":
       break;
     case "wheel":
-      engine.camera.customZoom = Math.clamp(
-        engine.camera.customZoom + event.deltaY / 100,
-        1,
-        100
-      );
-      updateZoom();
       break;
     case "pointerdown":
     case "pointerup":
@@ -155,6 +149,7 @@ const events = new Set();
 for (const key in canvas) {
   if (/^on/.test(key)) {
     switch (key) {
+      case "wheel":
       case "onresize":
       case "onorientationchange":
       case "pointerdown":
@@ -789,6 +784,7 @@ const tick = () => {
 
   // Call tick again on the next frame
   window.requestAnimationFrame(tick);
+  engine.endLoop();
   stats.end();
 };
 

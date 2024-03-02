@@ -269,6 +269,24 @@ class WindowManager {
   }
 }
 
+const updateZoom = () => {
+  const { customZoom, aspect } = engine.camera;
+  if (engine.camera.isOrthographicCamera) {
+    const height = customZoom;
+    const width = aspect * height;
+
+    engine.camera.left = -width / 2;
+    engine.camera.right = width / 2;
+    engine.camera.top = height / 2;
+    engine.camera.bottom = -height / 2;
+  } else if (engine.camera.isPerspectiveCamera) {
+    engine.camera.position.multiplyScalar(
+      customZoom / engine.camera.position.length()
+    );
+  }
+  engine.camera.updateProjectionMatrix();
+};
+
 class RenderManager {
   constructor() {
     const canvas = document.querySelector("canvas.webgl");
@@ -283,6 +301,22 @@ class RenderManager {
     composer.addPass(renderPass);
     scene.add(camera);
 
+    camera.updateZoom = () => {
+      const { customZoom, aspect } = camera;
+      if (camera.isOrthographicCamera) {
+        const height = customZoom;
+        const width = aspect * height;
+
+        camera.left = -width / 2;
+        camera.right = width / 2;
+        camera.top = height / 2;
+        camera.bottom = -height / 2;
+      } else if (camera.isPerspectiveCamera) {
+        camera.position.multiplyScalar(customZoom / camera.position.length());
+      }
+      camera.updateProjectionMatrix();
+    };
+
     this.scene = scene;
     this.renderer = renderer;
     this.composer = composer;
@@ -294,6 +328,19 @@ class RenderManager {
     this.composer.setSize(width, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  }
+
+  handleMouse({ mouseWheel: { deltaY } }) {
+    console.log("HELK");
+    if (!deltaY) {
+      return;
+    }
+    this.camera.customZoom = Math.clamp(
+      this.camera.customZoom + deltaY / 100,
+      1,
+      100
+    );
+    this.camera.updateZoom();
   }
 }
 
@@ -345,6 +392,11 @@ class InputManager {
       this.mouseState.buttons = event.buttons;
     };
 
+    const handleScrollEvent = (event) => {
+      this.mouseState.mouseWheel.deltaY = event.deltaY;
+    };
+
+    window.addEventListener("wheel", handleScrollEvent);
     window.addEventListener("pointerdown", handleMouseEvent);
     window.addEventListener("pointerup", handleMouseEvent);
     window.addEventListener("pointermove", handleMouseEvent);
@@ -361,6 +413,10 @@ class InputManager {
 
   updateSize(sizes) {
     this.sizes = sizes;
+  }
+
+  endLoop() {
+    this.mouseState.mouseWheel.deltaY = null;
   }
 }
 
@@ -423,6 +479,7 @@ export class KubEngine {
     this.playSound = audioManager.play;
     this.loadModel = modelManager.load;
     this.getModel = modelManager.get;
+    this.renderManager = renderManager;
     this.scene = renderManager.scene;
     this.renderer = renderManager.renderer;
     this.composer = renderManager.composer;
@@ -433,5 +490,10 @@ export class KubEngine {
 
   update() {
     this.timeManager.update();
+    this.renderManager.handleMouse(this.inputManager.mouseState);
+  }
+
+  endLoop() {
+    this.inputManager.endLoop();
   }
 }
