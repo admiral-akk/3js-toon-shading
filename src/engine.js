@@ -246,9 +246,9 @@ class WindowManager {
       sizesUpdated(this.sizes);
     };
 
+    window.addEventListener("resize", this.updateSize);
+    window.addEventListener("orientationchange", this.updateSize);
     this.updateSize();
-    window.addEventListener("onresize", this.updateSize);
-    window.addEventListener("onorientationchange", this.updateSize);
   }
 }
 

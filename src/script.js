@@ -182,9 +182,16 @@ const universalEventHandler = (event) => {
 const events = new Set();
 for (const key in canvas) {
   if (/^on/.test(key)) {
-    const eventType = key.substring(2);
-    events.add(eventType);
-    window.addEventListener(eventType, universalEventHandler);
+    switch (key) {
+      case "onresize":
+      case "onorientationchange":
+        continue;
+      default:
+        const eventType = key.substring(2);
+        events.add(eventType);
+        window.addEventListener(eventType, universalEventHandler);
+        break;
+    }
   }
 }
 
