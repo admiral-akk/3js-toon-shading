@@ -96,16 +96,17 @@ const ui = document.querySelector("div.overlay");
 const canvas = document.querySelector("canvas.webgl");
 const listener = new THREE.AudioListener();
 const camera = generateCamera(cameraConfig);
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 camera.add(listener);
+engine.scene.add(camera);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setClearColor("#201919");
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-const scene = new THREE.Scene();
-scene.add(camera);
 const composer = new EffectComposer(renderer);
-const renderPass = new RenderPass(scene, camera);
+const renderPass = new RenderPass(engine.scene, camera);
 composer.addPass(renderPass);
+
 var stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
 document.body.appendChild(stats.dom);
@@ -380,7 +381,7 @@ const registerMaterial = (material) => {
 };
 
 const updateMaterialSet = () => {
-  scene.traverse(function (object) {
+  engine.scene.traverse(function (object) {
     if (object.material) registerMaterial(object.material);
   });
 };
@@ -599,14 +600,14 @@ const generateTile = (tile) => {
     box.add(bush);
     bush.position.y = tile.height / 2;
   }
-  scene.add(box);
+  engine.scene.add(box);
   return box;
 };
 
 const regenerateMap = (map) => {
   // Clear any removed tiles
   map.graphics.tiles.forEach((v) => {
-    scene.remove(v);
+    engine.scene.remove(v);
   });
   map.graphics.tiles = [];
   map.data.tiles.forEach((tile) => {
@@ -635,7 +636,7 @@ selectionPlane.lookAt(new THREE.Vector3(0, 1, 0));
 selectionPlane.position.y = -1;
 selectionPlane.castShadow = false;
 selectionPlane.receiveShadow = false;
-scene.add(selectionPlane);
+engine.scene.add(selectionPlane);
 
 const raycaster = new THREE.Raycaster();
 raycaster.layers.set(1);
@@ -647,7 +648,7 @@ const targetCoordinate = () => {
   }
   raycaster.setFromCamera(inputManager.mousePos, camera);
 
-  const intersects = raycaster.intersectObjects(scene.children);
+  const intersects = raycaster.intersectObjects(engine.scene.children);
 
   if (intersects.length > 0) {
     const p = intersects[0].point;
@@ -736,7 +737,7 @@ waterPlane.lookAt(new THREE.Vector3(0, 1, 0));
 waterPlane.position.y = -1.5;
 waterPlane.castShadow = false;
 waterPlane.receiveShadow = false;
-scene.add(waterPlane);
+engine.scene.add(waterPlane);
 
 const groundPlaneG = new THREE.PlaneGeometry(1000, 1000);
 const groundPlane = new THREE.Mesh(groundPlaneG, groundMaterial);
@@ -744,7 +745,7 @@ groundPlane.lookAt(new THREE.Vector3(0, 1, 0));
 groundPlane.position.y = -2.0;
 groundPlane.castShadow = false;
 groundPlane.receiveShadow = false;
-scene.add(groundPlane);
+engine.scene.add(groundPlane);
 
 /**
  * Loading overlay
@@ -829,7 +830,7 @@ engine.loadFont("./fonts/helvetiker_regular.typeface.json");
  */
 const boxG = new THREE.SphereGeometry(1, 200, 200);
 const boxMesh = new THREE.Mesh(boxG, toonMaterial);
-scene.add(boxMesh);
+engine.scene.add(boxMesh);
 boxMesh.castShadow = true;
 boxMesh.receiveShadow = true;
 boxMesh.material.shading = THREE.SmoothShading;
@@ -844,7 +845,7 @@ planeMesh.visible = false;
 boxMesh.visible = false;
 planeMesh.position.y = -2;
 planeMesh.lookAt(boxMesh.position);
-scene.add(planeMesh);
+engine.scene.add(planeMesh);
 planeMesh.castShadow = true;
 planeMesh.receiveShadow = true;
 
@@ -869,7 +870,7 @@ const makeDirectionalLight = (targetDirection = THREE.Object3D.DEFAULT_UP) => {
   directionalLight.shadow.camera.bottom = -10;
   directionalLight.shadow.camera.left = 10;
   directionalLight.shadow.camera.right = -10;
-  scene.add(directionalLight);
+  engine.scene.add(directionalLight);
   return directionalLight;
 };
 
@@ -895,7 +896,7 @@ const tick = () => {
   // update controls
   // controls.update();
 
-  // Render scene
+  // Render engine.scene
   rotateBox(timeTracker.elapsedTime);
   composer.render();
 

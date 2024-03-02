@@ -158,6 +158,12 @@ class ModelManager {
   }
 }
 
+class RenderManager {
+  constructor() {
+    this.scene = new THREE.Scene();
+  }
+}
+
 export class KubEngine {
   constructor() {
     THREE.Cache.enabled = true;
@@ -168,6 +174,7 @@ export class KubEngine {
     const fontManager = new FontManager(loadingManager);
     const audioManager = new AudioManager(loadingManager);
     const modelManager = new ModelManager(loadingManager);
+    const renderManager = new RenderManager();
 
     this.loadingManager = loadingManager;
     this.loadTexture = textureManager.load;
@@ -177,5 +184,6 @@ export class KubEngine {
     this.playSound = audioManager.play;
     this.loadModel = modelManager.load;
     this.getModel = modelManager.get;
+    this.scene = renderManager.scene;
   }
 }
