@@ -3,8 +3,6 @@ import * as THREE from "three";
 import GUI from "lil-gui";
 import { gsap } from "gsap";
 import Stats from "stats-js";
-import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import loadingVertexShader from "./shaders/loading/vertex.glsl";
 import loadingFragmentShader from "./shaders/loading/fragment.glsl";
@@ -37,75 +35,13 @@ const engine = new KubEngine();
 /**
  * Core objects
  */
-const perspectiveConfig = {
-  type: "perspective",
-  fov: 75,
-  zoom: 5,
-};
-
-const orthographicConfig = {
-  type: "orthographic",
-  zoom: 10,
-};
-
-const cameraConfig = {
-  subtypeConfig: orthographicConfig,
-  aspectRatio: 16 / 9,
-  near: 0.001,
-  position: new THREE.Vector3(5, 7, 5),
-};
-
-const generateCamera = ({ aspectRatio, subtypeConfig, near, position }) => {
-  let camera;
-  switch (subtypeConfig.type) {
-    case "perspective":
-      camera = new THREE.PerspectiveCamera(
-        subtypeConfig.fov,
-        cameraConfig.aspectRatio
-      );
-      camera.customZoom = subtypeConfig.zoom;
-      break;
-    case "orthographic":
-      const height = subtypeConfig.zoom;
-      const width = aspectRatio * height;
-
-      camera = new THREE.OrthographicCamera(
-        -width / 2,
-        width / 2,
-        height / 2,
-        -height / 2,
-        near
-      );
-      camera.customZoom = subtypeConfig.zoom;
-      break;
-    default:
-      throw new Error("unknown camera type");
-  }
-  camera.position.x = position.x;
-  camera.position.y = position.y;
-  camera.position.z = position.z;
-  camera.aspect = aspectRatio;
-  camera.near = near;
-  camera.lookAt(new THREE.Vector3());
-  return camera;
-};
-
 const container = document.querySelector("div.container");
 const canvasContainer = document.querySelector("div.relative");
 const ui = document.querySelector("div.overlay");
 const canvas = document.querySelector("canvas.webgl");
 const listener = new THREE.AudioListener();
-const camera = generateCamera(cameraConfig);
-camera.add(listener);
-engine.scene.add(camera);
-
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setClearColor("#201919");
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-const composer = new EffectComposer(renderer);
-const renderPass = new RenderPass(engine.scene, camera);
-composer.addPass(renderPass);
+engine.camera.add(listener);
+engine.scene.add(engine.camera);
 
 var stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -143,30 +79,32 @@ const sizes = {
 };
 
 const updateZoom = () => {
-  const { customZoom, aspect } = camera;
-  if (camera.isOrthographicCamera) {
+  const { customZoom, aspect } = engine.camera;
+  if (engine.camera.isOrthographicengine.camera) {
     const height = customZoom;
     const width = aspect * height;
     console.log(customZoom, height, width);
 
-    camera.left = -width / 2;
-    camera.right = width / 2;
-    camera.top = height / 2;
-    camera.bottom = -height / 2;
-  } else if (camera.isPerspectiveCamera) {
-    camera.position.multiplyScalar(customZoom / camera.position.length());
+    engine.camera.left = -width / 2;
+    engine.camera.right = width / 2;
+    engine.camera.top = height / 2;
+    engine.camera.bottom = -height / 2;
+  } else if (engine.camera.isPerspectiveengine.camera) {
+    engine.camera.position.multiplyScalar(
+      customZoom / engine.camera.position.length()
+    );
   }
-  camera.updateProjectionMatrix();
+  engine.camera.updateProjectionMatrix();
 };
 
 const updateSize = () => {
-  if (window.innerHeight * camera.aspect > window.innerWidth) {
+  if (window.innerHeight * engine.camera.aspect > window.innerWidth) {
     sizes.width = window.innerWidth;
-    sizes.height = window.innerWidth / camera.aspect;
+    sizes.height = window.innerWidth / engine.camera.aspect;
     sizes.verticalOffset = (window.innerHeight - sizes.height) / 2;
     sizes.horizontalOffset = 0;
   } else {
-    sizes.width = window.innerHeight * camera.aspect;
+    sizes.width = window.innerHeight * engine.camera.aspect;
     sizes.height = window.innerHeight;
     sizes.verticalOffset = 0;
     sizes.horizontalOffset = (window.innerWidth - sizes.width) / 2;
@@ -174,10 +112,10 @@ const updateSize = () => {
   canvasContainer.style.top = sizes.verticalOffset.toString() + "px";
   canvasContainer.style.left = sizes.horizontalOffset.toString() + "px";
 
-  renderer.setSize(sizes.width, sizes.height);
-  composer.setSize(sizes.width, sizes.height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  engine.renderer.setSize(sizes.width, sizes.height);
+  engine.composer.setSize(sizes.width, sizes.height);
+  engine.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  engine.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 };
 updateSize();
 
@@ -242,8 +180,8 @@ const universalEventHandler = (event) => {
       }
       break;
     case "wheel":
-      camera.customZoom = Math.clamp(
-        camera.customZoom + event.deltaY / 100,
+      engine.camera.customZoom = Math.clamp(
+        engine.camera.customZoom + event.deltaY / 100,
         1,
         100
       );
@@ -646,7 +584,7 @@ const targetCoordinate = () => {
   if (!inputManager.mousePos) {
     return;
   }
-  raycaster.setFromCamera(inputManager.mousePos, camera);
+  raycaster.setFromCamera(inputManager.mousePos, engine.camera);
 
   const intersects = raycaster.intersectObjects(engine.scene.children);
 
@@ -763,7 +701,7 @@ const loadingShader = {
 
 const loadingScreen = new ShaderPass(loadingShader);
 const loadingUniforms = loadingScreen.material.uniforms;
-composer.addPass(loadingScreen);
+engine.composer.addPass(loadingScreen);
 
 /**
  * Loading Animation
@@ -864,8 +802,8 @@ const makeDirectionalLight = (targetDirection = THREE.Object3D.DEFAULT_UP) => {
   directionalLight.shadow.bias = -0.001;
   directionalLight.shadow.mapSize.width = 1 << 12;
   directionalLight.shadow.mapSize.height = 1 << 12;
-  directionalLight.shadow.camera.near = 0; // same as the camera
-  directionalLight.shadow.camera.far = 40; // same as the camera
+  directionalLight.shadow.camera.near = 0; // same as the engine.camera
+  directionalLight.shadow.camera.far = 40; // same as the engine.camera
   directionalLight.shadow.camera.top = 10;
   directionalLight.shadow.camera.bottom = -10;
   directionalLight.shadow.camera.left = 10;
@@ -898,7 +836,7 @@ const tick = () => {
 
   // Render engine.scene
   rotateBox(timeTracker.elapsedTime);
-  composer.render();
+  engine.composer.render();
 
   // Call tick again on the next frame
   window.requestAnimationFrame(tick);

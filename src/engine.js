@@ -5,11 +5,11 @@
  */
 
 import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 import { FontLoader } from "three/addons/loaders/FontLoader.js";
-
-//
 
 /**
  * There are going to be a few components here.
@@ -158,9 +158,78 @@ class ModelManager {
   }
 }
 
+/**
+ * Core objects
+ */
+const perspectiveConfig = {
+  type: "perspective",
+  fov: 75,
+  zoom: 5,
+};
+
+const orthographicConfig = {
+  type: "orthographic",
+  zoom: 10,
+};
+
+const cameraConfig = {
+  subtypeConfig: orthographicConfig,
+  aspectRatio: 16 / 9,
+  near: 0.001,
+  position: new THREE.Vector3(5, 7, 5),
+};
+
+const generateCamera = ({ aspectRatio, subtypeConfig, near, position }) => {
+  let camera;
+  switch (subtypeConfig.type) {
+    case "perspective":
+      camera = new THREE.PerspectiveCamera(
+        subtypeConfig.fov,
+        cameraConfig.aspectRatio
+      );
+      camera.customZoom = subtypeConfig.zoom;
+      break;
+    case "orthographic":
+      const height = subtypeConfig.zoom;
+      const width = aspectRatio * height;
+
+      camera = new THREE.OrthographicCamera(
+        -width / 2,
+        width / 2,
+        height / 2,
+        -height / 2,
+        near
+      );
+      camera.customZoom = subtypeConfig.zoom;
+      break;
+    default:
+      throw new Error("unknown camera type");
+  }
+  camera.position.x = position.x;
+  camera.position.y = position.y;
+  camera.position.z = position.z;
+  camera.aspect = aspectRatio;
+  camera.near = near;
+  camera.lookAt(new THREE.Vector3());
+  return camera;
+};
+
 class RenderManager {
   constructor() {
+    const canvas = document.querySelector("canvas.webgl");
     this.scene = new THREE.Scene();
+    const camera = generateCamera(cameraConfig);
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setClearColor("#201919");
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(this.scene, camera);
+    composer.addPass(renderPass);
+
+    this.renderer = renderer;
+    this.composer = composer;
+    this.camera = camera;
   }
 }
 
@@ -185,5 +254,8 @@ export class KubEngine {
     this.loadModel = modelManager.load;
     this.getModel = modelManager.get;
     this.scene = renderManager.scene;
+    this.renderer = renderManager.renderer;
+    this.composer = renderManager.composer;
+    this.camera = renderManager.camera;
   }
 }
