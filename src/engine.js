@@ -5,9 +5,9 @@
  */
 
 import * as THREE from "three";
-import Stats from "stats-js";
-import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
+import { FontLoader } from "three/addons/loaders/FontLoader.js";
 
 //
 
@@ -59,11 +59,11 @@ export const partition = (array, filterFn) => {
 
 class FontManager {
   constructor(loadingManager) {
-    this.fontLoader = new THREE.TextureLoader(loadingManager);
+    this.fontLoader = new FontLoader(loadingManager);
 
     this.fonts = new Map();
     this.load = (path) => {
-      this.fontLoader.load(`path`, (font) => {
+      this.fontLoader.load(path, (font) => {
         this.fonts.set(path, font);
       });
     };
@@ -112,6 +112,52 @@ class AudioManager {
   }
 }
 
+class ModelManager {
+  constructor(loadingManager) {
+    const dracoLoader = new DRACOLoader(loadingManager);
+    const gltfLoader = new GLTFLoader(loadingManager);
+    gltfLoader.setDRACOLoader(dracoLoader);
+    dracoLoader.setDecoderPath("./draco/gltf/");
+
+    this.models = new Map();
+
+    this.load = (path, material = null) => {
+      gltfLoader.load(path, (data) => {
+        const model = data.scene;
+        if (material) {
+          model.traverse(function (child) {
+            if (child instanceof THREE.Mesh) {
+              child.material = material;
+            }
+          });
+        }
+        model.animations = data.animations;
+        models.set(path, model);
+      });
+    };
+
+    this.get = (path) => {
+      if (!this.models.has(path)) {
+        return null;
+      }
+      const rawModel = this.models.get(path);
+
+      const model = SkeletonUtils.clone(rawModel);
+      if (rawModel.animations) {
+        model.mixer = new THREE.AnimationMixer(model);
+        model.mixer.clips = rawModel.animations;
+        model.mixer.playAnimation = (name, loopMode = THREE.LoopOnce) => {
+          model.mixer.stopAllAction();
+          const action = model.mixer.clipAction(name);
+          action.setLoop(loopMode);
+          action.play();
+        };
+      }
+      return model;
+    };
+  }
+}
+
 export class KubEngine {
   constructor() {
     THREE.Cache.enabled = true;
@@ -121,12 +167,15 @@ export class KubEngine {
     const textureManager = new TextureManager(loadingManager);
     const fontManager = new FontManager(loadingManager);
     const audioManager = new AudioManager(loadingManager);
+    const modelManager = new ModelManager(loadingManager);
 
-    this.audioManager = audioManager;
+    this.loadingManager = loadingManager;
     this.loadTexture = textureManager.load;
     this.loadFont = fontManager.load;
     this.getFont = fontManager.get;
     this.loadSound = audioManager.load;
     this.playSound = audioManager.play;
+    this.loadModel = modelManager.load;
+    this.getModel = modelManager.get;
   }
 }

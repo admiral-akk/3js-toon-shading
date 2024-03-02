@@ -133,19 +133,6 @@ stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
 document.body.appendChild(stats.dom);
 
 /**
- * Loader Setup
- */
-
-THREE.Cache.enabled = true;
-const loadingManager = new THREE.LoadingManager();
-loadingManager.hasFiles = false;
-loadingManager.onStart = () => (loadingManager.hasFiles = true);
-const dracoLoader = new DRACOLoader(loadingManager);
-const gltfLoader = new GLTFLoader(loadingManager);
-gltfLoader.setDRACOLoader(dracoLoader);
-dracoLoader.setDecoderPath("./draco/gltf/");
-
-/**
  * Data
  */
 
@@ -164,51 +151,6 @@ const exportData = () => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-};
-
-/**
- * Models
- */
-
-const baseColorTexture = engine.loadTexture("./texture/baseColor.png", {
-  flipY: false,
-});
-baseColorTexture.flipY = false;
-const models = new Map();
-
-const loadModel = (name, material) => {
-  gltfLoader.load(`./models/${name}.glb`, (data) => {
-    const model = data.scene;
-    model.traverse(function (child) {
-      if (child instanceof THREE.Mesh) {
-        child.material = material;
-      }
-    });
-    model.animations = data.animations;
-    models.set(name, model);
-  });
-};
-
-const getModel = (name) => {
-  if (!models.has(name)) {
-    return null;
-  }
-  const rawModel = models.get(name);
-
-  const model = SkeletonUtils.clone(rawModel);
-  scene.add(model);
-
-  if (rawModel.animations) {
-    model.mixer = new THREE.AnimationMixer(model);
-    model.mixer.clips = rawModel.animations;
-    model.mixer.playAnimation = (name, loopMode = THREE.LoopOnce) => {
-      model.mixer.stopAllAction();
-      const action = model.mixer.clipAction(name);
-      action.setLoop(loopMode);
-      action.play();
-    };
-  }
-  return model;
 };
 
 /**
@@ -887,10 +829,10 @@ const updateProgress = (progress) => {
 };
 
 const initLoadingAnimation = () => {
-  loadingManager.onProgress = (_, itemsLoaded, itemsTotal) => {
+  engine.loadingManager.onProgress = (_, itemsLoaded, itemsTotal) => {
     updateProgress(itemsLoaded / itemsTotal);
   };
-  if (!loadingManager.hasFiles) {
+  if (!engine.loadingManager.hasFiles) {
     updateProgress(1);
   }
 };
@@ -902,7 +844,7 @@ const initLoadingAnimation = () => {
 engine.loadTexture("./texture/matcap01.png");
 engine.loadTexture("https://source.unsplash.com/random/100x100?sig=1");
 engine.loadSound("./audio/swoosh01.mp3");
-engine.loadFont("./fonts/helvetiker_regular.typeface");
+engine.loadFont("./fonts/helvetiker_regular.typeface.json");
 
 /**
  *  Box
