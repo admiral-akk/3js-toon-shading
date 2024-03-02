@@ -23,6 +23,9 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
  * - data that is loaded to define the game itself
  * - HP values, enemy types, map looks like?
  *
+ * Input Handler
+ * - Tracks mouse/keyboard and keeps some more useful facts about what's active?
+ *
  * Game State
  * - data that describes the current state of the game
  * - where is the player standing? what have they done, etc
@@ -54,96 +57,88 @@ export const partition = (array, filterFn) => {
   return [pass, fail];
 };
 
-const perspectiveConfig = {
-  type: "perspective",
-  fov: 75,
-  zoom: 5,
-};
-
-const orthographicConfig = {
-  type: "orthographic",
-  zoom: 10,
-};
-
-const cameraConfig = {
-  subtypeConfig: orthographicConfig,
-  aspectRatio: 16 / 9,
-  near: 0.001,
-  position: new THREE.Vector3(5, 7, 5),
-};
-
-export const customUniform = (value, config = { attachDebug: false }) => {
-  const uniform = new THREE.Uniform(value);
-  if (config.attachDebug) {
-    uniform.attachDebug = config.attachDebug;
+class ContentLoader {
+  constructor() {
+    THREE.Cache.enabled = true;
+    const loadingManager = new THREE.LoadingManager();
+    loadingManager.hasFiles = false;
+    loadingManager.onStart = () => (loadingManager.hasFiles = true);
+    const textureLoader = new THREE.TextureLoader(loadingManager);
+    const dracoLoader = new DRACOLoader(loadingManager);
+    const audioLoader = new THREE.AudioLoader(loadingManager);
+    const gltfLoader = new GLTFLoader(loadingManager);
+    const fontLoader = new FontLoader(loadingManager);
+    gltfLoader.setDRACOLoader(dracoLoader);
+    dracoLoader.setDecoderPath("./draco/gltf/");
+    this.loadingManager = loadingManager;
+    this.textureLoader = textureLoader;
+    this.gltfLoader = gltfLoader;
+    this.fontLoader = fontLoader;
+    this.audioLoader = audioLoader;
+    this.models = new Map();
   }
-  return uniform;
-};
 
-const generateCamera = ({ aspectRatio, subtypeConfig, near, position }) => {
-  let camera;
-  switch (subtypeConfig.type) {
-    case "perspective":
-      camera = new THREE.PerspectiveCamera(
-        subtypeConfig.fov,
-        cameraConfig.aspectRatio
-      );
-      camera.customZoom = subtypeConfig.zoom;
-      break;
-    case "orthographic":
-      const height = subtypeConfig.zoom;
-      const width = aspectRatio * height;
-
-      camera = new THREE.OrthographicCamera(
-        -width / 2,
-        width / 2,
-        height / 2,
-        -height / 2,
-        near
-      );
-      camera.customZoom = subtypeConfig.zoom;
-      break;
-    default:
-      throw new Error("unknown camera type");
+  load(path, ext, config = {}) {
+    let content;
+    switch (ext) {
+      case "png":
+      case "jpg":
+        content = textureLoader.load(path);
+        break;
+      case "glb":
+        if (this.models.has(path)) {
+          return this.models[path];
+        }
+        gltfLoader.load(path, (data) => {
+          const model = data.scene;
+          if (config.material) {
+            model.traverse(function (child) {
+              if (child instanceof THREE.Mesh) {
+                child.material = config.material;
+              }
+            });
+          }
+          model.animations = data.animations;
+        });
+        break;
+      case "mp3":
+        break;
+      case "typeface.json":
+        break;
+      default:
+        return null;
+    }
+    for (const param in config) {
+      content[`${param}`] = config.param;
+    }
+    return content;
   }
-  camera.position.x = position.x;
-  camera.position.y = position.y;
-  camera.position.z = position.z;
-  camera.aspect = aspectRatio;
-  camera.near = near;
-  camera.lookAt(new THREE.Vector3());
-  return camera;
-};
+}
+
+class TextureManager {
+  constructor(loadingManager) {
+    this.textureLoader = new THREE.TextureLoader(loadingManager);
+
+    this.load = (path, config = {}) => {
+      const texture = this.textureLoader.load(path);
+      for (const param in config) {
+        texture[`${param}`] = config.param;
+      }
+      return texture;
+    };
+  }
+}
 
 export class KubEngine {
   constructor() {
-    this.canvas = document.querySelector("canvas.webgl");
-    this.container = document.querySelector("div.container");
-    this.canvasContainer = document.querySelector("div.relative");
-    this.ui = document.querySelector("div.overlay");
-    const listener = new THREE.AudioListener();
-    const camera = generateCamera(cameraConfig);
-    camera.add(listener);
-    this.camera = camera;
-    this.listener = listener;
-    const renderer = new THREE.WebGLRenderer({
-      canvas: this.canvas,
-      antialias: true,
-    });
-    renderer.setClearColor("#201919");
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer = renderer;
-    this.scene = new THREE.Scene();
-    const composer = new EffectComposer(renderer);
-    const renderPass = new RenderPass(this.scene, this.camera);
-    composer.addPass(renderPass);
-    this.composer = composer;
-    this.renderPass = renderPass;
-    composer.addPass(renderPass);
-    const stats = new Stats();
-    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-    document.body.appendChild(stats.dom);
-    this.stats = stats;
+    THREE.Cache.enabled = true;
+    const loadingManager = new THREE.LoadingManager();
+    loadingManager.hasFiles = false;
+    loadingManager.onStart = () => (loadingManager.hasFiles = true);
+    const textureManager = new TextureManager(loadingManager);
+
+    this.loadingManager = loadingManager;
+    console.log(textureManager);
+    this.loadTexture = textureManager.load;
   }
 }

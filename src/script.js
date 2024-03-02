@@ -24,6 +24,7 @@ import groundVertexShader from "./shaders/ground/vertex.glsl";
 import groundFragmentShader from "./shaders/ground/fragment.glsl";
 import gameData from "./gameData.json";
 import { uniform } from "three/examples/jsm/nodes/core/UniformNode";
+import { KubEngine } from "./engine.js";
 
 /**
  * Helpers
@@ -48,6 +49,12 @@ const customUniform = (value, config = { attachDebug: false }) => {
   }
   return uniform;
 };
+
+/**
+ *
+ */
+
+const engine = new KubEngine();
 
 /**
  * Core objects
@@ -222,7 +229,9 @@ const playSound = (name) => {
  * Models
  */
 
-const baseColorTexture = loadTexture("baseColor");
+const baseColorTexture = engine.loadTexture("./texture/baseColor.png", {
+  flipY: false,
+});
 baseColorTexture.flipY = false;
 const models = new Map();
 
@@ -558,7 +567,7 @@ const bushMaterial = new THREE.ShaderMaterial({
     uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
     uIsHovered: customUniform(false),
     uNoise: new THREE.Uniform(
-      loadTexture("noiseTexture", {
+      engine.loadTexture("./texture/noiseTexture.png", {
         wrapS: THREE.RepeatWrapping,
         wrapT: THREE.RepeatWrapping,
         repeat: new THREE.Vector2(10000, 10000),
@@ -948,8 +957,9 @@ const initLoadingAnimation = () => {
 /**
  * Loaded Objects
  */
-loadTexture("matcap01");
-loadTextureFromUrl("https://source.unsplash.com/random/100x100?sig=1");
+
+engine.loadTexture("./texture/matcap01.png");
+engine.loadTexture("https://source.unsplash.com/random/100x100?sig=1");
 loadSound("swoosh01");
 loadFont("helvetiker_regular.typeface");
 
