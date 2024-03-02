@@ -141,9 +141,7 @@ const loadingManager = new THREE.LoadingManager();
 loadingManager.hasFiles = false;
 loadingManager.onStart = () => (loadingManager.hasFiles = true);
 const dracoLoader = new DRACOLoader(loadingManager);
-const audioLoader = new THREE.AudioLoader(loadingManager);
 const gltfLoader = new GLTFLoader(loadingManager);
-const fontLoader = new FontLoader(loadingManager);
 gltfLoader.setDRACOLoader(dracoLoader);
 dracoLoader.setDecoderPath("./draco/gltf/");
 
@@ -166,32 +164,6 @@ const exportData = () => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-};
-
-/**
- * Audio
- */
-
-const audioPool = [];
-const buffers = new Map();
-
-const loadSound = (name) => {
-  audioLoader.load(`./audio/${name}.mp3`, function (buffer) {
-    buffers.set(name, buffer);
-  });
-};
-
-const playSound = (name) => {
-  if (!buffers.has(name)) {
-    return;
-  }
-  const buffer = buffers.get(name);
-  let audio = audioPool.filter((a) => !a.isPlaying).pop();
-  if (!audio) {
-    audio = new THREE.Audio(listener);
-  }
-  audio.setBuffer(buffer);
-  audio.play();
 };
 
 /**
@@ -929,8 +901,8 @@ const initLoadingAnimation = () => {
 
 engine.loadTexture("./texture/matcap01.png");
 engine.loadTexture("https://source.unsplash.com/random/100x100?sig=1");
-loadSound("swoosh01");
-loadFont("helvetiker_regular.typeface");
+engine.loadSound("./audio/swoosh01.mp3");
+engine.loadFont("./fonts/helvetiker_regular.typeface");
 
 /**
  *  Box

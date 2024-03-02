@@ -59,12 +59,12 @@ export const partition = (array, filterFn) => {
 
 class FontManager {
   constructor(loadingManager) {
-    this.textureLoader = new THREE.TextureLoader(loadingManager);
+    this.fontLoader = new THREE.TextureLoader(loadingManager);
 
     this.fonts = new Map();
     this.load = (path) => {
-      fontLoader.load(`path`, function (font) {
-        fonts.set(path, font);
+      this.fontLoader.load(`path`, (font) => {
+        this.fonts.set(path, font);
       });
     };
     this.get = (path) => this.fonts.get(path);
@@ -85,6 +85,33 @@ class TextureManager {
   }
 }
 
+class AudioManager {
+  constructor(loadingManager) {
+    this.audioLoader = new THREE.AudioLoader(loadingManager);
+    this.audioPool = [];
+    this.buffers = new Map();
+
+    this.load = (path) => {
+      this.audioLoader.load(path, (buffer) => {
+        this.buffers.set(path, buffer);
+      });
+    };
+
+    this.play = (path, listener) => {
+      if (!this.buffers.has(path)) {
+        return;
+      }
+      const buffer = this.buffers.get(path);
+      const audio = this.audioPool.filter((audio) => !audio.isPlaying).pop();
+      if (!audio) {
+        audio = new THREE.Audio(listener);
+      }
+      audio.setBuffer(buffer);
+      audio.play();
+    };
+  }
+}
+
 export class KubEngine {
   constructor() {
     THREE.Cache.enabled = true;
@@ -93,9 +120,13 @@ export class KubEngine {
     loadingManager.onStart = () => (loadingManager.hasFiles = true);
     const textureManager = new TextureManager(loadingManager);
     const fontManager = new FontManager(loadingManager);
+    const audioManager = new AudioManager(loadingManager);
 
+    this.audioManager = audioManager;
     this.loadTexture = textureManager.load;
     this.loadFont = fontManager.load;
     this.getFont = fontManager.get;
+    this.loadSound = audioManager.load;
+    this.playSound = audioManager.play;
   }
 }
