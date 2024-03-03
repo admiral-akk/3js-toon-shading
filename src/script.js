@@ -1,6 +1,5 @@
 import "./style.css";
 import * as THREE from "three";
-import GUI from "lil-gui";
 import { gsap } from "gsap";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import loadingVertexShader from "./shaders/loading/vertex.glsl";
@@ -105,7 +104,9 @@ const updateDebugGui = (debugObject) => {
       };
       controllers.set(
         uniformName,
-        gui.addColor(debugObject, uniformName).onChange(onChange)
+        engine.debugManager.gui
+          .addColor(debugObject, uniformName)
+          .onChange(onChange)
       );
     } else if (
       typeof sampleValue === "boolean" ||
@@ -121,7 +122,7 @@ const updateDebugGui = (debugObject) => {
       };
       controllers.set(
         uniformName,
-        gui
+        engine.debugManager.gui
           .add(debugObject, uniformName)
           .onChange(onChange)
           .min(-1)
@@ -298,12 +299,6 @@ const groundMaterial = new THREE.ShaderMaterial({
  * Debug
  */
 
-const debugObject = {
-  timeSpeed: 1.0,
-};
-
-const gui = new GUI();
-gui.add(debugObject, "timeSpeed").min(0).max(3).step(0.1);
 registerMaterial(bushMaterial);
 registerMaterial(waterMaterial);
 

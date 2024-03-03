@@ -4,6 +4,7 @@
  * Thankfully, it only takes an idiot to write it, so I'm making progress.
  */
 
+import GUI from "lil-gui";
 import * as THREE from "three";
 import Stats from "stats-js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
@@ -14,7 +15,6 @@ import { FontLoader } from "three/addons/loaders/FontLoader.js";
 import newData from "./data.json";
 import gameData from "./gameData.json";
 import { uniform } from "three/examples/jsm/nodes/core/UniformNode";
-
 /**
  * There are going to be a few components here.
  *
@@ -667,6 +667,19 @@ const exportData = (data, manager) => {
   }
 };
 
+class DebugManager {
+  constructor() {
+    const gui = new GUI();
+
+    const debugObject = {
+      timeSpeed: 1.0,
+    };
+
+    gui.add(debugObject, "timeSpeed").min(0).max(3).step(0.1);
+    this.gui = gui;
+  }
+}
+
 export class KubEngine {
   importData() {
     this.data = gameData;
@@ -713,6 +726,7 @@ export class KubEngine {
     register(timeManager, inputManager);
 
     const statsManager = new StatsManager();
+    const debugManager = new DebugManager();
 
     this.statsManager = statsManager;
     this.timeManager = timeManager;
@@ -732,6 +746,7 @@ export class KubEngine {
     this.sizes = windowManager.sizes;
     this.renderManager = renderManager;
     this.inputManager = inputManager;
+    this.debugManager = debugManager;
 
     this.importData();
   }
