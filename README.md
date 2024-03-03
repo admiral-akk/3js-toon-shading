@@ -8,6 +8,7 @@ Credits
 - Base Color(s): https://imphenzia.com/assets
 - Perlin Noise Generator: http://kitfox.com/projects/perlinNoiseMaker/
 - Perlin Noise Fields: https://sighack.com/post/getting-creative-with-perlin-noise-fields
+- UV Subgrid: https://blenderartists.org/t/solved-a-way-to-see-the-scale-of-an-uv-mapping/1313252
 
 Learning Resources
 

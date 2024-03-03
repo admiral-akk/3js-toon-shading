@@ -2,7 +2,7 @@
 #include <shadowmap_pars_vertex>
 
 varying vec3 vNormal;
-uniform float uTime;
+uniform float suTime;
 uniform float uWaveFrequency;
 uniform float uWaveHeight;
 
@@ -21,7 +21,7 @@ void main() {
     vec4 objectPos = vec4(position, 1.);
     // Moves it into world space. Includes object rotations, scale, and translation.
     vec4 worldPos = modelMatrix * objectPos;
-    worldPos.y += uWaveHeight*sin(2. * M_PI * uWaveFrequency * uTime);
+    worldPos.y += uWaveHeight*sin(2. * M_PI * uWaveFrequency * suTime);
     // Applies view (moves it relative to camera position/orientation)
     vec4 viewPos = viewMatrix * worldPos;
     // Applies projection (orthographic/perspective)

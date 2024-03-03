@@ -31,6 +31,11 @@ const _dummyVector = new THREE.Vector3();
 
 const engine = new KubEngine();
 
+engine.renderManager.materialManager.addMaterial(
+  "test",
+  toonVertexShader,
+  toonFragmentShader
+);
 /**
  * Event Handling
  */
@@ -57,7 +62,7 @@ const applyInputToGame = () => {
   const s = pressedKeys.get("s");
 
   if (s && ctrl && (s.heldUserTime == 0 || ctrl.heldUserTime == 0)) {
-    engine.editorManager.exportData();
+    engine.exportData();
   }
   if (pressedKeys.has("1")) {
     setSelect("1");
@@ -155,7 +160,7 @@ const registerMaterial = (material) => {
   }
 
   updateDebugGui(gameData.debugObject);
-  material.uniforms.uTime = customUniform(0.0);
+  material.uniforms.suTime = customUniform(0.0);
 };
 
 const updateMaterialSet = () => {
@@ -184,6 +189,7 @@ const toonMaterial = new THREE.ShaderMaterial({
     uIsHovered: customUniform(false),
   },
 });
+
 const bushMaterial = new THREE.ShaderMaterial({
   lights: true,
   vertexShader: bushVertexShader,
@@ -215,6 +221,7 @@ const bushMaterial = new THREE.ShaderMaterial({
     ),
   },
 });
+
 bushMaterial.name = "bush";
 const hoveredToonMaterial = new THREE.ShaderMaterial({
   lights: true,
@@ -236,6 +243,7 @@ const hoveredToonMaterial = new THREE.ShaderMaterial({
     uIsHovered: customUniform(true),
   },
 });
+
 const waterMaterial = new THREE.ShaderMaterial({
   lights: true,
   vertexShader: waterVertexShader,
@@ -320,7 +328,7 @@ const setSelect = (num) => {
 };
 
 const gameMap = {
-  data: engine.editorManager.data,
+  data: engine.data,
   graphics: {
     tiles: [],
   },
@@ -664,8 +672,8 @@ const tick = () => {
   updateHighlight();
   updateMaterialSet();
   materials.forEach((material) => {
-    if (material.uniforms && material.uniforms.uTime) {
-      material.uniforms.uTime.value = engine.timeManager.time.gameTime;
+    if (material.uniforms && material.uniforms.suTime) {
+      material.uniforms.suTime.value = engine.timeManager.time.gameTime;
     }
   });
   engine.update();

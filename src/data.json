@@ -1,0 +1,14 @@
+{
+  "renderManager": {
+    "materialManager": {
+      "data": {
+        "uShadowColor": { "uniformType": "color", "value": 16738740 },
+        "uHalfLitColor": { "uniformType": "color", "value": 16738740 },
+        "uLitColor": { "uniformType": "color", "value": 16738740 },
+        "uShadowThreshold": { "uniformType": "float", "value": 1 },
+        "uHalfLitThreshold": { "uniformType": "float", "value": 1 },
+        "uIsHovered": { "uniformType": "bool", "value": true }
+      }
+    }
+  }
+}

@@ -11,7 +11,9 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 import { FontLoader } from "three/addons/loaders/FontLoader.js";
+import newData from "./data.json";
 import gameData from "./gameData.json";
+import { uniform } from "three/examples/jsm/nodes/core/UniformNode";
 
 /**
  * There are going to be a few components here.
@@ -272,7 +274,7 @@ class WindowManager {
 }
 
 class RenderManager {
-  constructor() {
+  constructor(defaultTexture) {
     const canvas = document.querySelector("canvas.webgl");
     const scene = new THREE.Scene();
     const camera = generateCamera(cameraConfig);
@@ -301,10 +303,13 @@ class RenderManager {
       camera.updateProjectionMatrix();
     };
 
+    const materialManager = new MaterialManager(defaultTexture);
+
     this.scene = scene;
     this.renderer = renderer;
     this.composer = composer;
     this.camera = camera;
+    this.materialManager = materialManager;
   }
 
   updateSize({ width, height }) {
@@ -350,6 +355,9 @@ class InputManager {
     this.listeners = [];
 
     window.addEventListener("keydown", (event) => {
+      if (event.key === "F12") {
+        return;
+      }
       event.preventDefault();
       const { pressedKeys } = this.keyState;
       if (!pressedKeys.has(event.key)) {
@@ -432,6 +440,184 @@ class TimeManager {
   }
 }
 
+class Uniform {
+  static deserialize = (data) => {
+    let value;
+    switch (data.uniformType) {
+      case "float":
+      case "int":
+      case "bool":
+      case "vec2":
+      case "vec3":
+      case "vec4":
+        value = data.value;
+        break;
+      case "color":
+        value = new THREE.Color(data.value);
+        break;
+      default:
+        throw new Error(`Dunno what to do here, ${data.uniformType}`);
+    }
+    const uniform = new THREE.Uniform(value);
+    uniform.uniformType = data.uniformType;
+    return uniform;
+  };
+
+  static serialize = (uniform) => {
+    let data = { uniformType: uniform.uniformType };
+    switch (uniform.uniformType) {
+      case "float":
+      case "int":
+      case "bool":
+      case "vec2":
+      case "vec3":
+      case "vec4":
+      case "color":
+        data.value = uniform.value;
+        break;
+      default:
+        throw new Error(
+          `Dunno what to do here, ${uniform}, ${uniform.uniformType}`
+        );
+    }
+    return data;
+  };
+
+  static default = (uniformType, { defaultTexture }) => {
+    switch (uniformType) {
+      case "float":
+        return 1;
+      case "bool":
+        return true;
+      case "int":
+        return 1;
+      case "vec2":
+        return new THREE.Vector2(1, 1);
+      case "vec3":
+        return new THREE.Vector3(1, 1, 1);
+      case "vec4":
+        return new THREE.Vector4(1, 1, 1, 1);
+      case "color":
+        return new THREE.Color(0xff69b4);
+      case "sampler2D":
+        return defaultTexture;
+      default:
+        throw new Error(`Unknown unform type: ${uniformType}`);
+    }
+  };
+}
+
+class MaterialManager {
+  constructor(defaultTexture) {
+    this.defaultTexture = defaultTexture;
+    this.materials = new Map();
+    this.uniforms = new Map();
+  }
+
+  exportD() {
+    const data = {};
+    this.uniforms.forEach((v, k) => {
+      data[k] = Uniform.serialize(v);
+    });
+    return data;
+  }
+
+  load(data, config = { overwrite: true }) {
+    for (const uniform in data) {
+      console.log(data, uniform, data[uniform]);
+      const value = Uniform.deserialize(data[uniform]);
+      const existingValue = this.uniforms.get(uniform);
+      if (existingValue) {
+        if (config.overwrite) {
+          existingValue.value = value.value;
+        }
+      } else {
+        this.uniforms.set(uniform, Uniform.deserialize(data[uniform]));
+      }
+    }
+  }
+
+  updateUniforms(newUniforms) {
+    newUniforms.forEach((uniformType, uniformName) => {
+      const storedUniform = this.uniforms.get(uniformName);
+      if (storedUniform) {
+        // check that the types match. If they don't, error out.
+        if (storedUniform.uniformType !== uniformType) {
+          throw new Error(
+            `Uniform types don't match for ${uniformName}.
+             Stored uniform: ${storedUniform.uniformType},
+              new: ${uniformType}`
+          );
+        }
+        return;
+      }
+
+      // make a new uniform
+      let value = Uniform.default(uniformType, {
+        defaultTexture: this.defaultTexture,
+      });
+
+      const customUniform = new THREE.Uniform(value);
+      customUniform.uniformType = uniformType;
+      this.uniforms.set(uniformName, customUniform);
+    });
+  }
+
+  addMaterial(
+    name,
+    vertexShader,
+    fragmentShader,
+    config = { lights: false, unique: false }
+  ) {
+    const existingMaterial = this.materials.get(name);
+    if (existingMaterial) {
+      return existingMaterial;
+    }
+
+    const uniformRe = new RegExp(/uniform\s([\w\d]+)\su([\w\d]+);/g);
+    const colorRe = new RegExp(/color|colour|/i);
+
+    // We don't care where the uniforms are declared, just that they are.
+    const megaShader = vertexShader + fragmentShader;
+
+    const uniforms = new Map();
+    [...megaShader.matchAll(uniformRe)].forEach((match) => {
+      // colors are vec3 in glsl, so if the variable name indicates
+      // color, we'll interpret it as that.
+      if (match[2].match(colorRe) && match[1] === "vec3") {
+        match[1] = "color";
+      }
+      const storedName = `${config.unique ? `${name}_` : ""}u${match[2]}`;
+      uniforms.set(storedName, match[1]);
+    });
+
+    this.updateUniforms(uniforms);
+
+    const storedUniforms = new Map(
+      [...uniforms.keys()].map((name) => [name, this.uniforms.get(name)])
+    );
+
+    const materialParams = {
+      vertexShader,
+      fragmentShader,
+      uniforms: Object.fromEntries(storedUniforms),
+    };
+
+    // Add lighting data
+    if (config.lights) {
+      materialParams.lights = true;
+      materialParams.uniforms = {
+        ...materialParams.uniforms,
+        ...THREE.UniformsLib.lights,
+      };
+    }
+
+    const material = new THREE.ShaderMaterial(materialParams);
+    this.materials.set(name, material);
+    return material;
+  }
+}
+
 class StatsManager {
   constructor() {
     const stats = new Stats();
@@ -441,15 +627,59 @@ class StatsManager {
   }
 }
 
-class EditorManager {
-  constructor() {
+const loadData = (data, manager) => {
+  // load data into manager
+  if ("load" in manager && "data" in data) {
+    manager.load(data.data);
+  }
+
+  // recurse on children
+  for (const field in data) {
+    if (field in manager) {
+      loadData(data[field], manager[field]);
+    }
+  }
+};
+
+const exportData = (data, manager) => {
+  if (!manager || typeof manager !== "object") {
+    return;
+  }
+  // load data from manager
+  console.log(manager);
+  console.log(data);
+  if ("exportD" in manager) {
+    data.data = manager.exportD();
+  }
+
+  for (const field in manager) {
+    if (!field.toLowerCase().match(/manager/)) {
+      continue;
+    }
+    // try adding a field
+    data[field] = {};
+    // we don't check if it implements an export function, because
+    // some sub-sub field might implement it instead
+    exportData(data[field], manager[field]);
+    if (Object.keys(data[field]).length === 0) {
+      delete data[field];
+    }
+  }
+};
+
+export class KubEngine {
+  importData() {
     this.data = gameData;
+    this.newData = newData;
+    loadData(this.newData, this);
   }
 
   exportData() {
+    const data = {};
+    exportData(data, this);
     var link = document.createElement("a");
-    const fileName = "gameData.json";
-    var myFile = new Blob([JSON.stringify(this.data)], {
+    const fileName = "data.json";
+    var myFile = new Blob([JSON.stringify(data)], {
       type: "application/json",
     });
     link.download = fileName;
@@ -458,19 +688,18 @@ class EditorManager {
     link.click();
     document.body.removeChild(link);
   }
-}
 
-export class KubEngine {
   constructor() {
     THREE.Cache.enabled = true;
     const loadingManager = new THREE.LoadingManager();
     loadingManager.hasFiles = false;
     loadingManager.onStart = () => (loadingManager.hasFiles = true);
     const textureManager = new TextureManager(loadingManager);
+    const defaultTexture = textureManager.load("./texture/uvSubgrid.png");
     const fontManager = new FontManager(loadingManager);
     const audioManager = new AudioManager(loadingManager);
     const modelManager = new ModelManager(loadingManager);
-    const renderManager = new RenderManager();
+    const renderManager = new RenderManager(defaultTexture);
     renderManager.camera.add(audioManager.audioListener);
 
     const inputManager = new InputManager();
@@ -484,8 +713,6 @@ export class KubEngine {
     register(timeManager, inputManager);
 
     const statsManager = new StatsManager();
-
-    const editorManager = new EditorManager();
 
     this.statsManager = statsManager;
     this.timeManager = timeManager;
@@ -503,8 +730,10 @@ export class KubEngine {
     this.composer = renderManager.composer;
     this.camera = renderManager.camera;
     this.sizes = windowManager.sizes;
+    this.renderManager = renderManager;
     this.inputManager = inputManager;
-    this.editorManager = editorManager;
+
+    this.importData();
   }
 
   update() {
