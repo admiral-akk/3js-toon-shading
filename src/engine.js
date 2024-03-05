@@ -496,7 +496,7 @@ class Uniform {
       case "float":
         return 1;
       case "bool":
-        return true;
+        return false;
       case "int":
         return 1;
       case "vec2":

@@ -68,122 +68,19 @@ const applyInputToGame = () => {
 /**
  * Materials
  */
-const materials = new Set();
-const debugUUIDs = new Set();
-const controllers = new Map();
-const references = new Map();
 
-const updateDebugGui = (debugObject) => {
-  references.forEach((uniformValues, uniformName) => {
-    if (controllers.has(uniformName)) {
-      controllers.get(uniformName).destroy();
-      controllers.delete(uniformName);
-    }
-    if (uniformName in debugObject) {
-      uniformValues.forEach((u) => {
-        if (u.value.isColor) {
-          u.value = new THREE.Color(debugObject[uniformName]);
-        } else {
-          u.value = debugObject[uniformName];
-        }
-      });
-    }
-    const sampleValue = uniformValues[0].value;
-    debugObject[uniformName] = sampleValue;
-    if (sampleValue.isColor) {
-      const onChange = (newValue) => {
-        uniformValues.forEach((uniform) => {
-          uniform.value = newValue;
-        });
-      };
-      controllers.set(
-        uniformName,
-        engine.debugManager.gui
-          .addColor(debugObject, uniformName)
-          .onChange(onChange)
-      );
-    } else if (
-      typeof sampleValue === "boolean" ||
-      typeof sampleValue === "number" ||
-      sampleValue.length === 2 ||
-      sampleValue.length === 3 ||
-      sampleValue.length === 4
-    ) {
-      const onChange = (newValue) => {
-        uniformValues.forEach((uniform) => {
-          uniform.value = newValue;
-        });
-      };
-      controllers.set(
-        uniformName,
-        engine.debugManager.gui
-          .add(debugObject, uniformName)
-          .onChange(onChange)
-          .min(-1)
-          .max(1)
-          .step(0.05)
-      );
-    }
-  });
-};
-
-const registerMaterial = (material) => {
-  const { uuid, uniforms, name } = material;
-  if (!uniforms) {
-    return;
-  }
-  if (debugUUIDs.has(uuid)) {
-    return;
-  }
-  debugUUIDs.add(material.uuid);
-  materials.add(material);
-
-  // Update debug menu
-  for (const property in uniforms) {
-    const pName = `${property}`;
-    if (!uniforms[pName].attachDebug) {
-      continue;
-    }
-    // We mark all of our uniform properties with 'u' to start.
-    if (`${property}`[0] === "u") {
-      const debugName = `${name}_${pName}`;
-      if (!references.has(debugName)) {
-        references.set(debugName, []);
-      }
-      references.get(debugName).push(uniforms[pName]);
-    }
-  }
-
-  updateDebugGui(gameData.debugObject);
-  material.uniforms.suTime = customUniform(0.0);
-};
-
-const updateMaterialSet = () => {
-  engine.scene.traverse(function (object) {
-    if (object.material) registerMaterial(object.material);
-  });
-};
-
-const toonMaterial = new THREE.ShaderMaterial({
-  lights: true,
-  vertexShader: toonVertexShader,
-  fragmentShader: toonFragmentShader,
-  uniforms: {
-    ...THREE.UniformsLib.lights,
-    uShadowColor: customUniform(new THREE.Color(75 / 255, 75 / 255, 75 / 255), {
-      attachDebug: true,
-    }),
-    uHalfLitColor: customUniform(new THREE.Color(0.5, 0.5, 0.5), {
-      attachDebug: true,
-    }),
-    uLitColor: customUniform(new THREE.Color(0.9, 0.9, 0.9), {
-      attachDebug: true,
-    }),
-    uShadowThreshold: customUniform(0.1, { attachDebug: true }),
-    uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
-    uIsHovered: customUniform(false),
-  },
-});
+const waterMaterial = engine.renderManager.materialManager.addMaterial(
+  "water",
+  waterVertexShader,
+  waterFragmentShader,
+  { lights: true, transparent: true, unique: true }
+);
+const toonMaterial = engine.renderManager.materialManager.addMaterial(
+  "cube",
+  toonVertexShader,
+  toonFragmentShader,
+  { lights: true, unique: true }
+);
 
 const bushMaterial = new THREE.ShaderMaterial({
   lights: true,
@@ -224,27 +121,20 @@ const hoveredToonMaterial = new THREE.ShaderMaterial({
   fragmentShader: toonFragmentShader,
   uniforms: {
     ...THREE.UniformsLib.lights,
-    uShadowColor: customUniform(new THREE.Color(75 / 255, 75 / 255, 75 / 255), {
+    pShadowColor: customUniform(new THREE.Color(75 / 255, 75 / 255, 75 / 255), {
       attachDebug: true,
     }),
-    uHalfLitColor: customUniform(new THREE.Color(0.5, 0.5, 0.5), {
+    pHalfLitColor: customUniform(new THREE.Color(0.5, 0.5, 0.5), {
       attachDebug: true,
     }),
-    uLitColor: customUniform(new THREE.Color(0.9, 0.9, 0.9), {
+    pLitColor: customUniform(new THREE.Color(0.9, 0.9, 0.9), {
       attachDebug: true,
     }),
-    uShadowThreshold: customUniform(0.1, { attachDebug: true }),
-    uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
-    uIsHovered: customUniform(true),
+    pShadowThreshold: customUniform(0.1, { attachDebug: true }),
+    pHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
+    eIsHovered: customUniform(true),
   },
 });
-
-const waterMaterial = engine.renderManager.materialManager.addMaterial(
-  "water",
-  waterVertexShader,
-  waterFragmentShader,
-  { lights: true, transparent: true, unique: true }
-);
 
 const groundMaterial = new THREE.ShaderMaterial({
   lights: true,

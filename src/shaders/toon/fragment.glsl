@@ -5,12 +5,12 @@
 #include <shadowmask_pars_fragment>
 
 varying vec3 vNormal;
-uniform vec3 uShadowColor;
-uniform vec3 uHalfLitColor;
-uniform vec3 uLitColor;
-uniform float uShadowThreshold;
-uniform float uHalfLitThreshold;
-uniform bool uIsHovered;
+uniform vec3 pShadowColor;
+uniform vec3 pHalfLitColor;
+uniform vec3 pLitColor;
+uniform float pShadowThreshold;
+uniform float pHalfLitThreshold;
+uniform bool eIsHovered;
 
 // Variables described here: https://www.khronos.org/opengl/wiki/Built-in_Variable_(GLSL)
 void main()
@@ -27,13 +27,13 @@ void main()
   );
   float NdotL = dot(vNormal, directionalLights[0].direction);
   float val = clamp(NdotL*shadow, 0., 1.);
-  float isShadow =  step(val,uShadowThreshold);
-  float isHalfLit = (1. - isShadow) * step(val, uHalfLitThreshold);
+  float isShadow =  step(val,pShadowThreshold);
+  float isHalfLit = (1. - isShadow) * step(val, pHalfLitThreshold);
   float isLit = (1. - isShadow) * (1. - isHalfLit);
-  vec3 color = uShadowColor * isShadow 
-   + uHalfLitColor * isHalfLit 
-   + uLitColor * isLit;
-   if (uIsHovered) {
+  vec3 color = pShadowColor * isShadow 
+   + pHalfLitColor * isHalfLit 
+   + pLitColor * isLit;
+   if (eIsHovered) {
     gl_FragColor = vec4(1.0,0.,0., 1.0);
    } else {
     gl_FragColor = vec4(color, 1.0);
