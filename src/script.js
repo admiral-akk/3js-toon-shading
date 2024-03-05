@@ -29,12 +29,6 @@ const _dummyVector = new THREE.Vector3();
  */
 
 const engine = new KubEngine();
-
-engine.renderManager.materialManager.addMaterial(
-  "test",
-  toonVertexShader,
-  toonFragmentShader
-);
 /**
  * Event Handling
  */
@@ -245,34 +239,13 @@ const hoveredToonMaterial = new THREE.ShaderMaterial({
   },
 });
 
-const waterMaterial = new THREE.ShaderMaterial({
-  lights: true,
-  vertexShader: waterVertexShader,
-  fragmentShader: waterFragmentShader,
-  transparent: true,
-  uniforms: {
-    ...THREE.UniformsLib.lights,
+const waterMaterial = engine.renderManager.materialManager.addMaterial(
+  "water",
+  waterVertexShader,
+  waterFragmentShader,
+  { lights: true, transparent: true, unique: true }
+);
 
-    uShadowColor: customUniform(new THREE.Color(75 / 255, 75 / 255, 75 / 255), {
-      attachDebug: true,
-    }),
-    uHalfLitColor: customUniform(new THREE.Color(0.5, 0.5, 0.5), {
-      attachDebug: true,
-    }),
-    uLitColor: customUniform(new THREE.Color(0.9, 0.9, 0.9), {
-      attachDebug: true,
-    }),
-    uShadowThreshold: customUniform(0.1, { attachDebug: true }),
-    uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
-    uIsHovered: customUniform(false),
-    uWaterColor: customUniform(new THREE.Color(0x0000ef), {
-      attachDebug: true,
-    }),
-    uWaveHeight: customUniform(0.15, { attachDebug: true }),
-    uWaveFrequency: customUniform(0.1, { attachDebug: true }),
-  },
-});
-waterMaterial.name = "water";
 const groundMaterial = new THREE.ShaderMaterial({
   lights: true,
   vertexShader: groundVertexShader,
@@ -298,9 +271,6 @@ const groundMaterial = new THREE.ShaderMaterial({
 /**
  * Debug
  */
-
-registerMaterial(bushMaterial);
-registerMaterial(waterMaterial);
 
 /**
  * Map Tracker
@@ -665,12 +635,13 @@ const clock = new THREE.Clock();
 const tick = () => {
   engine.statsManager.stats.begin();
   updateHighlight();
-  updateMaterialSet();
-  materials.forEach((material) => {
-    if (material.uniforms && material.uniforms.suTime) {
-      material.uniforms.suTime.value = engine.timeManager.time.gameTime;
+  for (const materialName in engine.renderManager.materialManager.materials) {
+    const material =
+      engine.renderManager.materialManager.materials[materialName];
+    if (material.uniforms && material.uniforms.eTime) {
+      material.uniforms.eTime.value = engine.timeManager.time.gameTime;
     }
-  });
+  }
   engine.update();
   // update controls
   // controls.update();

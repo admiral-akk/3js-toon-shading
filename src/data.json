@@ -1,14 +1,1 @@
-{
-  "renderManager": {
-    "materialManager": {
-      "data": {
-        "uShadowColor": { "uniformType": "color", "value": 16738740 },
-        "uHalfLitColor": { "uniformType": "color", "value": 16738740 },
-        "uLitColor": { "uniformType": "color", "value": 16738740 },
-        "uShadowThreshold": { "uniformType": "float", "value": 1 },
-        "uHalfLitThreshold": { "uniformType": "float", "value": 1 },
-        "uIsHovered": { "uniformType": "bool", "value": true }
-      }
-    }
-  }
-}
+{"renderManager":{"materialManager":{"data":{"water_pWaveFrequency":{"uniformType":"float","value":0.3},"water_pWaveHeight":{"uniformType":"float","value":0.15},"water_pWaterColor":{"uniformType":"color","value":{"r":0.2901960784313726,"g":0.4588235294117647,"b":0.8509803921568627}}}}}}

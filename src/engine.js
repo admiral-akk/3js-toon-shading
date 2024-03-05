@@ -84,6 +84,8 @@ class TextureManager {
       for (const param in config) {
         texture[`${param}`] = config.param;
       }
+      texture.path = path;
+      texture.config = config;
       return texture;
     };
   }
@@ -310,6 +312,7 @@ class RenderManager {
     this.composer = composer;
     this.camera = camera;
     this.materialManager = materialManager;
+    this.isDebuggable = true;
   }
 
   updateSize({ width, height }) {
@@ -453,12 +456,14 @@ class Uniform {
         value = data.value;
         break;
       case "color":
-        value = new THREE.Color(data.value);
+        const { r, g, b } = data.value;
+        value = new THREE.Color(r, g, b);
         break;
       default:
         throw new Error(`Dunno what to do here, ${data.uniformType}`);
     }
     const uniform = new THREE.Uniform(value);
+    uniform.isDebuggable = true;
     uniform.uniformType = data.uniformType;
     return uniform;
   };
@@ -472,8 +477,11 @@ class Uniform {
       case "vec2":
       case "vec3":
       case "vec4":
-      case "color":
         data.value = uniform.value;
+        break;
+      case "color":
+        const { r, g, b } = uniform.value;
+        data.value = { r, g, b };
         break;
       default:
         throw new Error(
@@ -510,36 +518,46 @@ class Uniform {
 class MaterialManager {
   constructor(defaultTexture) {
     this.defaultTexture = defaultTexture;
-    this.materials = new Map();
-    this.uniforms = new Map();
+    this.materials = {};
+    this.uniforms = {
+      isDebuggable: true,
+    };
+    this.isDebuggable = true;
   }
 
   exportD() {
     const data = {};
-    this.uniforms.forEach((v, k) => {
-      data[k] = Uniform.serialize(v);
-    });
+    for (const uniformName in this.uniforms) {
+      const splitName = uniformName.split("_");
+      if (splitName[splitName.length - 1][0] !== "p") {
+        continue;
+      }
+      data[uniformName] = Uniform.serialize(this.uniforms[uniformName]);
+    }
     return data;
   }
 
   load(data, config = { overwrite: true }) {
     for (const uniform in data) {
-      console.log(data, uniform, data[uniform]);
+      const splitName = uniform.split("_");
+      if (splitName[splitName.length - 1][0] !== "p") {
+        continue;
+      }
       const value = Uniform.deserialize(data[uniform]);
-      const existingValue = this.uniforms.get(uniform);
+      const existingValue = this.uniforms[uniform];
       if (existingValue) {
         if (config.overwrite) {
           existingValue.value = value.value;
         }
       } else {
-        this.uniforms.set(uniform, Uniform.deserialize(data[uniform]));
+        this.uniforms[uniform] = Uniform.deserialize(data[uniform]);
       }
     }
   }
 
   updateUniforms(newUniforms) {
     newUniforms.forEach((uniformType, uniformName) => {
-      const storedUniform = this.uniforms.get(uniformName);
+      const storedUniform = this.uniforms[uniformName];
       if (storedUniform) {
         // check that the types match. If they don't, error out.
         if (storedUniform.uniformType !== uniformType) {
@@ -559,7 +577,8 @@ class MaterialManager {
 
       const customUniform = new THREE.Uniform(value);
       customUniform.uniformType = uniformType;
-      this.uniforms.set(uniformName, customUniform);
+      customUniform.isDebuggable = true;
+      this.uniforms[uniformName] = customUniform;
     });
   }
 
@@ -569,12 +588,12 @@ class MaterialManager {
     fragmentShader,
     config = { lights: false, unique: false }
   ) {
-    const existingMaterial = this.materials.get(name);
+    const existingMaterial = this.materials[name];
     if (existingMaterial) {
       return existingMaterial;
     }
 
-    const uniformRe = new RegExp(/uniform\s([\w\d]+)\su([\w\d]+);/g);
+    const uniformRe = new RegExp(/uniform\s([\w\d]+)\s([peu][\w\d]+);/g);
     const colorRe = new RegExp(/color|colour|/i);
 
     // We don't care where the uniforms are declared, just that they are.
@@ -587,14 +606,17 @@ class MaterialManager {
       if (match[2].match(colorRe) && match[1] === "vec3") {
         match[1] = "color";
       }
-      const storedName = `${config.unique ? `${name}_` : ""}u${match[2]}`;
+      const storedName = `${config.unique ? `${name}_` : ""}${match[2]}`;
       uniforms.set(storedName, match[1]);
     });
 
     this.updateUniforms(uniforms);
 
     const storedUniforms = new Map(
-      [...uniforms.keys()].map((name) => [name, this.uniforms.get(name)])
+      [...uniforms.keys()].map((name) => {
+        const splitName = name.split("_");
+        return [splitName[splitName.length - 1], this.uniforms[name]];
+      })
     );
 
     const materialParams = {
@@ -603,17 +625,22 @@ class MaterialManager {
       uniforms: Object.fromEntries(storedUniforms),
     };
 
-    // Add lighting data
-    if (config.lights) {
-      materialParams.lights = true;
-      materialParams.uniforms = {
-        ...materialParams.uniforms,
-        ...THREE.UniformsLib.lights,
-      };
+    for (const field in config) {
+      materialParams[field] = config[field];
+      switch (field) {
+        case "lights":
+          // Add lighting data
+          materialParams.uniforms = {
+            ...materialParams.uniforms,
+            ...THREE.UniformsLib.lights,
+          };
+          break;
+        default:
+          break;
+      }
     }
-
     const material = new THREE.ShaderMaterial(materialParams);
-    this.materials.set(name, material);
+    this.materials[name] = material;
     return material;
   }
 }
@@ -646,8 +673,6 @@ const exportData = (data, manager) => {
     return;
   }
   // load data from manager
-  console.log(manager);
-  console.log(data);
   if ("exportD" in manager) {
     data.data = manager.exportD();
   }
@@ -668,7 +693,7 @@ const exportData = (data, manager) => {
 };
 
 class DebugManager {
-  constructor() {
+  constructor(engine) {
     const gui = new GUI();
 
     const debugObject = {
@@ -677,6 +702,34 @@ class DebugManager {
 
     gui.add(debugObject, "timeSpeed").min(0).max(3).step(0.1);
     this.gui = gui;
+    DebugManager.setupGui(engine, gui);
+  }
+
+  static setupGui(engine, gui) {
+    for (const field in engine) {
+      if (!engine[field].isDebuggable) {
+        continue;
+      }
+      if (engine[field].value) {
+        const onChange = (newValue) => {
+          engine[field].value = newValue;
+        };
+        if (engine[field].uniformType === "color") {
+          gui.addColor(engine[field], "value").name(field).onChange(onChange);
+        } else {
+          gui
+            .add(engine[field], "value")
+            .name(field)
+            .onChange(onChange)
+            .min(-1)
+            .max(1)
+            .step(0.05);
+        }
+      } else {
+        const folder = gui.addFolder(`${field}`);
+        this.setupGui(engine[field], folder);
+      }
+    }
   }
 }
 
@@ -726,7 +779,6 @@ export class KubEngine {
     register(timeManager, inputManager);
 
     const statsManager = new StatsManager();
-    const debugManager = new DebugManager();
 
     this.statsManager = statsManager;
     this.timeManager = timeManager;
@@ -746,9 +798,10 @@ export class KubEngine {
     this.sizes = windowManager.sizes;
     this.renderManager = renderManager;
     this.inputManager = inputManager;
-    this.debugManager = debugManager;
 
     this.importData();
+    const debugManager = new DebugManager(this);
+    this.debugManager = debugManager;
   }
 
   update() {
