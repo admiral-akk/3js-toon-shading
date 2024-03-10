@@ -15,7 +15,7 @@ import waterFragmentShader from "./shaders/water/fragment.glsl";
 import groundVertexShader from "./shaders/ground/vertex.glsl";
 import groundFragmentShader from "./shaders/ground/fragment.glsl";
 import { partition, customUniform } from "./helper.js";
-import { KubEngine } from "./engine.js";
+import * as ENGINE from "./engine.js";
 
 /**
  * Helpers
@@ -26,13 +26,7 @@ const _dummyVector = new THREE.Vector3();
  *
  */
 
-const engine = new KubEngine();
-
-class GameEditor {
-  constructor(engine) {
-    this.engine = engine;
-  }
-}
+const engine = new ENGINE.KubEngine();
 
 /**
  * Event Handling
@@ -78,7 +72,11 @@ const waterMaterial = engine.renderManager.materialManager.addMaterial(
   "water",
   waterVertexShader,
   waterFragmentShader,
-  { lights: true, transparent: true, unique: true }
+  {
+    lights: true,
+    transparent: true,
+    unique: true,
+  }
 );
 const toonMaterial = engine.renderManager.materialManager.addMaterial(
   "cube",
@@ -94,7 +92,6 @@ const bushMaterial = engine.renderManager.materialManager.addMaterial(
   { lights: true, unique: true }
 );
 
-bushMaterial.name = "bush";
 const hoveredToonMaterial = new THREE.ShaderMaterial({
   lights: true,
   vertexShader: toonVertexShader,
@@ -162,13 +159,34 @@ const setSelect = (num) => {
   }
 };
 
-const gameMap = {
-  data: { tiles: [] },
-  graphics: {
-    tiles: [],
-  },
-};
+class GameEditor {
+  constructor(engine) {
+    this.engine = engine;
+    this.editorData = {
+      gameMap: {
+        state: { tiles: [] },
+        graphics: {
+          tiles: [],
+        },
+      },
+    };
+    this.syncFromData = (data) => {
+      this.editorData.gameMap.state.tiles = data.state.tiles;
+    };
+    this.syncToData = (data) => {
+      if (!("state" in data)) {
+        data.state = {};
+      }
+      data.state.tiles = this.editorData.gameMap.state.tiles;
+    };
+  }
+}
 
+const editor = new GameEditor(engine);
+engine.editor = editor;
+const gameMap = editor.editorData.gameMap;
+
+engine.importData();
 const leafG = new THREE.SphereGeometry(1, 7, 7);
 
 const generateSubbush = (size, position, rotation = 0) => {
@@ -231,7 +249,7 @@ const regenerateMap = (map) => {
     engine.scene.remove(v);
   });
   map.graphics.tiles = [];
-  map.data.tiles.forEach((tile) => {
+  map.state.tiles.forEach((tile) => {
     const mesh = generateTile(tile);
     map.graphics.tiles.push(mesh);
   });
@@ -303,7 +321,7 @@ const addCube = () => {
   if (!coord) {
     return;
   }
-  const idx = gameMap.data.tiles.findIndex(
+  const idx = gameMap.state.tiles.findIndex(
     (v) => coord[0] === v.x && coord[1] === v.y
   );
   switch (selectionConfig.current) {
@@ -311,13 +329,13 @@ const addCube = () => {
       if (idx >= 0) {
         return;
       }
-      gameMap.data.tiles.push({ x: coord[0], y: coord[1], height: 1 });
+      gameMap.state.tiles.push({ x: coord[0], y: coord[1], height: 1 });
       break;
     case "bush":
       if (idx < 0) {
         return;
       }
-      gameMap.data.tiles[idx].hasBush = true;
+      gameMap.state.tiles[idx].hasBush = true;
       break;
   }
 
@@ -329,7 +347,7 @@ const removeCube = () => {
   if (!coord) {
     return;
   }
-  const idx = gameMap.data.tiles.findIndex(
+  const idx = gameMap.state.tiles.findIndex(
     (v) => coord[0] === v.x && coord[1] === v.y
   );
   switch (selectionConfig.current) {
@@ -337,13 +355,13 @@ const removeCube = () => {
       if (idx < 0) {
         return;
       }
-      gameMap.data.tiles.splice(idx, 1);
+      gameMap.state.tiles.splice(idx, 1);
       break;
     case "bush":
       if (idx < 0) {
         return;
       }
-      gameMap.data.tiles[idx].hasBush = false;
+      gameMap.state.tiles[idx].hasBush = false;
       break;
   }
 

@@ -52,6 +52,9 @@ Math.clamp = (num, min, max) => Math.max(min, Math.min(num, max));
 
 Math.randomRange = (min = 0, max = 1) => Math.random() * (max - min) + min;
 
+export const DefaultUniqueUniform = 0;
+export const DefaultLinkedUniform = 1;
+
 export const partition = (array, filterFn) => {
   const pass = [];
   const fail = [];
