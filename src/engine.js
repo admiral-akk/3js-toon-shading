@@ -87,7 +87,7 @@ const addDefaultSync = (obj) => {
   obj.syncToData = () => defaultSyncToData(obj);
 };
 
-const markDebug = (obj, config = { debugObj: false }) => {
+const markDebug = (obj, config = { debugType: null }) => {
   obj.debugConfig = config;
 };
 
@@ -585,7 +585,6 @@ class MaterialManager {
     }
 
     const uniform = new THREE.Uniform(data.value);
-    console.log(name, uniform);
     uniform.uniformType = uniformType;
 
     // check debug criteria
@@ -593,7 +592,7 @@ class MaterialManager {
     const firstChar = splitName[splitName.length - 1][0];
 
     if (firstChar === "p") {
-      markDebug(uniform, { debugObj: true });
+      markDebug(uniform, { debugType: uniformType });
     }
 
     // check persistent
@@ -624,7 +623,6 @@ class MaterialManager {
 
     const uniforms = [...megaShader.matchAll(uniformRe)].map((match) => {
       const [_, shaderType, shaderName] = match;
-      console.log(match);
 
       const uniformName = config.unique ? `${name}_${shaderName}` : shaderName;
       const uniformType =
@@ -658,7 +656,6 @@ class MaterialManager {
     }
     const material = new THREE.ShaderMaterial(materialParams);
     this.materials[name] = material;
-    console.log(material);
     return material;
   }
 }
@@ -711,7 +708,7 @@ const exportData = (data, manager) => {
 };
 
 class DebugManager {
-  constructor(engine) {
+  constructor() {
     const gui = new GUI();
 
     const debugObject = {
@@ -720,33 +717,83 @@ class DebugManager {
 
     gui.add(debugObject, "timeSpeed").min(0).max(3).step(0.1);
     this.gui = gui;
-    DebugManager.setupGui(engine, gui);
   }
 
-  static setupGui(engine, gui) {
-    console.log(engine);
-    for (const field in engine) {
-      const fieldVal = engine[field];
-      if (!fieldVal.debugConfig) {
+  static remove;
+
+  // We make this static because it's recursive, and
+  // we don't want to accidently include 'this'.
+  static updateGui(engine, gui, name) {
+    // Update existing folders
+    console.log("length", gui.folders.length);
+
+    const folderMap = new Map(gui.folders.map((f) => [f._title, f]));
+    const folderNamesToDelete = [];
+    for (const folder of gui.folders) {
+      const folderName = folder._title;
+      console.log("folder", gui.folders);
+      console.log("folder", folder);
+      if (!(folderName in engine) || !engine[folderName].debugConfig) {
+        console.log("deleting folder", folder);
+        // Remove irrelevant
+        folderNamesToDelete.push(folderName);
         continue;
       }
-      const debug = fieldVal.debugConfig;
-      if (debug.debugObj) {
-        if (fieldVal.uniformType === "color") {
-          gui.addColor(fieldVal, "value").name(field).onChange(onChange);
-        } else {
-          gui
-            .add(fieldVal, "value")
-            .name(field)
-            .onChange(onChange)
-            .min(-1)
-            .max(1)
-            .step(0.05);
-        }
+      // Update matching
+      DebugManager.updateGui(engine[folderName], folder, name);
+
+      if (folder.controllersRecursive().length === 0) {
+        folderNamesToDelete.push(folderName);
+      }
+    }
+
+    console.log(JSON.stringify(folderNamesToDelete));
+
+    folderNamesToDelete.forEach((folderName) => {
+      console.log(folderName);
+      folderMap.get(folderName).destroy();
+      folderMap.delete(folderName);
+    });
+
+    // Add new folders
+    for (const name in engine) {
+      if (!engine[name].debugConfig) {
+        continue;
+      }
+
+      const { debugType } = engine[name].debugConfig;
+
+      let folder;
+      if (debugType) {
+        folder = gui;
+      } else if (folderMap.has(name)) {
+        folder = folderMap.get(name);
       } else {
-        // Look for all children
-        const folder = gui.addFolder(`${field}`);
-        this.setupGui(fieldVal, folder);
+        folder = gui.addFolder(`${name}`);
+      }
+
+      DebugManager.updateGui(engine[name], folder, name);
+
+      if (folder.controllersRecursive().length === 0) {
+        folder.destroy();
+      }
+    }
+
+    // Check for a value
+    if (engine.debugConfig.debugType) {
+      const { debugType } = engine.debugConfig;
+      const existingController = gui.controllers.find((c) => c._name === name);
+      if (existingController) {
+        //existingController.value = engine.value;
+      } else {
+        switch (debugType) {
+          case "color":
+            gui.addColor(engine, "value").name(name);
+            break;
+          default:
+            gui.add(engine, "value").name(name).min(-1).max(1).step(0.05);
+            break;
+        }
       }
     }
   }
@@ -822,12 +869,16 @@ export class KubEngine {
     this.inputManager = inputManager;
 
     this.importData();
-    const debugManager = new DebugManager(this);
+    const debugManager = new DebugManager();
     this.debugManager = debugManager;
+
+    this.syncFromData();
+    DebugManager.updateGui(this, this.debugManager.gui, "engine");
   }
 
   update() {
     this.renderManager.handleMouse(this.inputManager.mouseState);
+    DebugManager.updateGui(this, this.debugManager.gui, "engine");
   }
 
   endLoop() {
