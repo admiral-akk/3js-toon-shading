@@ -585,34 +585,33 @@ class MaterialManager {
   }
 
   getUniform(name, data) {
-    if (this.uniforms[name]) {
-      return this.uniforms[name];
+    if (!this.uniforms[name]) {
+      const { uniformType } = data;
+      if (!data.value) {
+        data.value = Uniform.default(uniformType, {
+          defaultTexture: this.defaultTexture,
+        });
+      }
+
+      const uniform = new THREE.Uniform(data.value);
+      uniform.uniformType = uniformType;
+
+      // check debug criteria
+      const splitName = name.split("_");
+      const firstChar = splitName[splitName.length - 1][0];
+
+      if (firstChar === "p") {
+        markDebug(uniform, { debugType: uniformType });
+      }
+
+      // check persistent
+      if (firstChar === "p") {
+        uniform.shouldSync = true;
+      }
+
+      this.uniforms[name] = uniform;
     }
-    const { uniformType } = data;
-    if (!data.value) {
-      data.value = Uniform.default(uniformType, {
-        defaultTexture: this.defaultTexture,
-      });
-    }
-
-    const uniform = new THREE.Uniform(data.value);
-    uniform.uniformType = uniformType;
-
-    // check debug criteria
-    const splitName = name.split("_");
-    const firstChar = splitName[splitName.length - 1][0];
-
-    if (firstChar === "p") {
-      markDebug(uniform, { debugType: uniformType });
-    }
-
-    // check persistent
-    if (firstChar === "p") {
-      uniform.shouldSync = true;
-    }
-
-    this.uniforms[name] = uniform;
-    return uniform;
+    return this.uniforms[name];
   }
 
   addMaterial(
