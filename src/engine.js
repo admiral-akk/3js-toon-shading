@@ -44,8 +44,6 @@ import { uniform } from "three/examples/jsm/nodes/core/UniformNode";
  * - Can mutate Game State
  */
 
-// things should be broken out into editor and game logic
-// within that,
 /**
  * Helpers
  */
@@ -61,11 +59,6 @@ export const partition = (array, filterFn) => {
   return [pass, fail];
 };
 
-// what if everything has a data object
-// then you just call syncToData and syncFromData?
-// how does the debug menu know what is available?
-// just hooks into all data, I guess?
-
 const defaultSyncToData = (obj, data) => {
   for (const fieldName in obj) {
     data[fieldName] = {};
@@ -73,7 +66,6 @@ const defaultSyncToData = (obj, data) => {
       obj[fieldName].syncToData(data[fieldName]);
     }
     if (Object.keys(data[fieldName]).length === 0) {
-      console.log("deleting", fieldName);
       delete data[fieldName];
     }
   }
@@ -83,7 +75,6 @@ const defaultSyncFromData = (obj, data) => {
   for (const fieldName in obj) {
     if ("syncFromData" in obj[fieldName]) {
       if (!data[fieldName]) {
-        console.log("couldn't find", fieldName);
         data[fieldName] = {};
       }
       obj[fieldName].syncFromData(data[fieldName]);
@@ -571,7 +562,6 @@ class MaterialManager {
           defaultTexture: this.defaultTexture,
         });
         const uniform = this.getUniform(uniformName, uniformData);
-        console.log("sync data uniform", uniformName, uniform);
       }
     };
     this.syncToData = (data) => {
@@ -666,8 +656,6 @@ class MaterialManager {
     }
     const material = new THREE.ShaderMaterial(materialParams);
     this.materials[name] = material;
-    console.log(material);
-    console.log(this.uniforms);
     return material;
   }
 }
@@ -770,23 +758,10 @@ class DebugManager {
       } else {
         switch (debugType) {
           case "color":
-            gui
-              .addColor(engine, "value")
-              .name(name)
-              .onChange(() => {
-                console.log("changed", name, engine);
-              });
+            gui.addColor(engine, "value").name(name);
             break;
           default:
-            gui
-              .add(engine, "value")
-              .name(name)
-              .onChange(() => {
-                console.log("changed", name, engine);
-              })
-              .min(-1)
-              .max(1)
-              .step(0.05);
+            gui.add(engine, "value").name(name).min(-1).max(1).step(0.05);
             break;
         }
       }
@@ -870,7 +845,6 @@ export class KubEngine {
 
   update() {
     this.renderManager.handleMouse(this.inputManager.mouseState);
-    console.log(this.renderManager.materialManager);
   }
 
   endLoop() {
