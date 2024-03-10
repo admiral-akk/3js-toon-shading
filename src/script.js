@@ -14,8 +14,6 @@ import waterVertexShader from "./shaders/water/vertex.glsl";
 import waterFragmentShader from "./shaders/water/fragment.glsl";
 import groundVertexShader from "./shaders/ground/vertex.glsl";
 import groundFragmentShader from "./shaders/ground/fragment.glsl";
-import gameData from "./gameData.json";
-import { uniform } from "three/examples/jsm/nodes/core/UniformNode";
 import { partition, customUniform } from "./helper.js";
 import { KubEngine } from "./engine.js";
 
@@ -29,6 +27,13 @@ const _dummyVector = new THREE.Vector3();
  */
 
 const engine = new KubEngine();
+
+class GameEditor {
+  constructor(engine) {
+    this.engine = engine;
+  }
+}
+
 /**
  * Event Handling
  */
@@ -82,37 +87,12 @@ const toonMaterial = engine.renderManager.materialManager.addMaterial(
   { lights: true, unique: true }
 );
 
-const bushMaterial = new THREE.ShaderMaterial({
-  lights: true,
-  vertexShader: bushVertexShader,
-  fragmentShader: bushFragmentShader,
-  uniforms: {
-    ...THREE.UniformsLib.lights,
-
-    uShadowColor: customUniform(new THREE.Color(61 / 255, 97 / 255, 85 / 255), {
-      attachDebug: true,
-    }),
-    uHalfLitColor: customUniform(
-      new THREE.Color(77 / 255, 125 / 255, 85 / 255),
-      {
-        attachDebug: true,
-      }
-    ),
-    uLitColor: customUniform(new THREE.Color(124 / 255, 175 / 255, 119 / 255), {
-      attachDebug: true,
-    }),
-    uShadowThreshold: customUniform(0.35, { attachDebug: true }),
-    uHalfLitThreshold: customUniform(0.5, { attachDebug: true }),
-    uIsHovered: customUniform(false),
-    uNoise: new THREE.Uniform(
-      engine.loadTexture("./texture/noiseTexture.png", {
-        wrapS: THREE.RepeatWrapping,
-        wrapT: THREE.RepeatWrapping,
-        repeat: new THREE.Vector2(10000, 10000),
-      })
-    ),
-  },
-});
+const bushMaterial = engine.renderManager.materialManager.addMaterial(
+  "bush",
+  toonVertexShader,
+  toonFragmentShader,
+  { lights: true, unique: true }
+);
 
 bushMaterial.name = "bush";
 const hoveredToonMaterial = new THREE.ShaderMaterial({

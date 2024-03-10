@@ -106,6 +106,8 @@ class FontManager {
 }
 
 class TextureManager {
+  static defaultTexturePath = "./texture/uvSubgrid.png";
+
   constructor(loadingManager) {
     this.textureLoader = new THREE.TextureLoader(loadingManager);
 
@@ -118,6 +120,7 @@ class TextureManager {
       texture.config = config;
       return texture;
     };
+    this.defaultTexture = this.load(TextureManager.defaultTexturePath);
   }
 }
 
@@ -306,7 +309,7 @@ class WindowManager {
 }
 
 class RenderManager {
-  constructor(defaultTexture) {
+  constructor(textureManager) {
     const canvas = document.querySelector("canvas.webgl");
     const scene = new THREE.Scene();
     const camera = generateCamera(cameraConfig);
@@ -335,7 +338,7 @@ class RenderManager {
       camera.updateProjectionMatrix();
     };
 
-    const materialManager = new MaterialManager(defaultTexture);
+    const materialManager = new MaterialManager(textureManager);
 
     this.scene = scene;
     this.renderer = renderer;
@@ -461,7 +464,7 @@ class TimeManager {
     };
     this.listeners = [];
 
-    this.update = () => {
+    this.endLoop = () => {
       const deltaTime = clock.getDelta();
       this.time.userTime += deltaTime;
       this.time.gameTime += deltaTime * this.gameSpeed;
@@ -475,10 +478,10 @@ class TimeManager {
 }
 
 class Uniform {
-  static deserializeValue = (data, { defaultTexture }) => {
+  static deserializeValue = (data, textureManager) => {
     const { uniformType } = data;
     if (!data.value) {
-      return Uniform.default(uniformType, { defaultTexture });
+      return Uniform.default(uniformType, textureManager);
     }
     switch (uniformType) {
       case "float":
@@ -491,13 +494,15 @@ class Uniform {
       case "color":
         const { r, g, b } = data.value;
         return new THREE.Color(r, g, b);
+      case "sampler2D":
+        return textureManager.load(data.value);
       default:
         throw new Error(`Dunno what to do here, ${uniformType}`);
     }
   };
 
-  static deserialize = (data, { defaultTexture }) => {
-    const value = Uniform.deserializeValue(data, { defaultTexture });
+  static deserialize = (data, textureManager) => {
+    const value = Uniform.deserializeValue(data, textureManager);
     const uniform = new THREE.Uniform(value);
     uniform.uniformType = data.uniformType;
     return uniform;
@@ -518,13 +523,16 @@ class Uniform {
         const { r, g, b } = value;
         data.value = { r, g, b };
         break;
+      case "sampler2D":
+        data.value = value.path;
+        break;
       default:
         throw new Error(`Dunno what to do here, ${value}, ${uniformType}`);
     }
     return data;
   };
 
-  static default = (uniformType, { defaultTexture }) => {
+  static default = (uniformType, textureManager) => {
     switch (uniformType) {
       case "float":
         return 1;
@@ -541,7 +549,7 @@ class Uniform {
       case "color":
         return new THREE.Color(0xff69b4);
       case "sampler2D":
-        return defaultTexture;
+        return textureManager.defaultTexture;
       default:
         throw new Error(`Unknown unform type: ${uniformType}`);
     }
@@ -549,8 +557,8 @@ class Uniform {
 }
 
 class MaterialManager {
-  constructor(defaultTexture) {
-    this.defaultTexture = defaultTexture;
+  constructor(textureManager) {
+    this.textureManager = textureManager;
     this.materials = {};
     this.uniforms = {};
     markDebug(this);
@@ -561,7 +569,7 @@ class MaterialManager {
         const uniformData = Uniform.deserialize(data[uniformName], {
           defaultTexture: this.defaultTexture,
         });
-        const uniform = this.getUniform(uniformName, uniformData);
+        this.getUniform(uniformName, uniformData);
       }
     };
     this.syncToData = (data) => {
@@ -615,7 +623,7 @@ class MaterialManager {
       return existingMaterial;
     }
 
-    const uniformRe = new RegExp(/uniform\s([\w\d]+)\s([peu][\w\d]+);/g);
+    const uniformRe = new RegExp(/uniform\s(\w+)\s([peu]\w+);/g);
     const colorRe = new RegExp(/color|colour|/i);
 
     // We don't care where the uniforms are declared, just that they are.
@@ -724,23 +732,23 @@ class DebugManager {
     });
 
     // Add new folders
-    for (const name in engine) {
-      if (!engine[name].debugConfig) {
+    for (const folderName in engine) {
+      if (!engine[folderName].debugConfig) {
         continue;
       }
 
-      const { debugType } = engine[name].debugConfig;
+      const { debugType } = engine[folderName].debugConfig;
 
       let folder;
       if (debugType) {
         folder = gui;
-      } else if (folderMap.has(name)) {
-        folder = folderMap.get(name);
+      } else if (folderMap.has(folderName)) {
+        folder = folderMap.get(folderName);
       } else {
-        folder = gui.addFolder(`${name}`);
+        folder = gui.addFolder(`${folderName}`);
       }
 
-      DebugManager.updateGui(engine[name], folder, name);
+      DebugManager.updateGui(engine[folderName], folder, folderName);
 
       if (folder.controllersRecursive().length === 0) {
         folder.destroy();
@@ -759,6 +767,12 @@ class DebugManager {
         switch (debugType) {
           case "color":
             gui.addColor(engine, "value").name(name);
+            break;
+          case "sampler2D":
+            gui.add(engine, "value").name(name);
+            break;
+          case "int":
+            gui.add(engine, "value").name(name).min(-3).max(3).step(1);
             break;
           default:
             gui.add(engine, "value").name(name).min(-1).max(1).step(0.05);
@@ -798,11 +812,10 @@ export class KubEngine {
     loadingManager.hasFiles = false;
     loadingManager.onStart = () => (loadingManager.hasFiles = true);
     const textureManager = new TextureManager(loadingManager);
-    const defaultTexture = textureManager.load("./texture/uvSubgrid.png");
     const fontManager = new FontManager(loadingManager);
     const audioManager = new AudioManager(loadingManager);
     const modelManager = new ModelManager(loadingManager);
-    const renderManager = new RenderManager(defaultTexture);
+    const renderManager = new RenderManager(textureManager);
     renderManager.camera.add(audioManager.audioListener);
 
     const inputManager = new InputManager();
@@ -848,7 +861,10 @@ export class KubEngine {
   }
 
   endLoop() {
-    this.inputManager.endLoop();
-    this.timeManager.update();
+    for (const field in this) {
+      if ("endLoop" in this[field]) {
+        this[field].endLoop();
+      }
+    }
   }
 }
