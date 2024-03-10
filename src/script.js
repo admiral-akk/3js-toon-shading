@@ -183,7 +183,7 @@ const setSelect = (num) => {
 };
 
 const gameMap = {
-  data: engine.data,
+  data: { tiles: [] },
   graphics: {
     tiles: [],
   },

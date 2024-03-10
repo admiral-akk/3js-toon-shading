@@ -66,25 +66,34 @@ export const partition = (array, filterFn) => {
 // how does the debug menu know what is available?
 // just hooks into all data, I guess?
 
-const defaultSyncToData = (obj) => {
+const defaultSyncToData = (obj, data) => {
   for (const fieldName in obj) {
+    data[fieldName] = {};
     if ("syncToData" in obj[fieldName]) {
-      obj[fieldName].syncToData(obj[fieldName]);
+      obj[fieldName].syncToData(data[fieldName]);
+    }
+    if (Object.keys(data[fieldName]).length === 0) {
+      console.log("deleting", fieldName);
+      delete data[fieldName];
     }
   }
 };
 
-const defaultSyncFromData = (obj) => {
+const defaultSyncFromData = (obj, data) => {
   for (const fieldName in obj) {
     if ("syncFromData" in obj[fieldName]) {
-      obj[fieldName].syncFromData(obj[fieldName]);
+      if (!data[fieldName]) {
+        console.log("couldn't find", fieldName);
+        data[fieldName] = {};
+      }
+      obj[fieldName].syncFromData(data[fieldName]);
     }
   }
 };
 
 const addDefaultSync = (obj) => {
-  obj.syncFromData = () => defaultSyncFromData(obj);
-  obj.syncToData = () => defaultSyncToData(obj);
+  obj.syncFromData = (data) => defaultSyncFromData(obj, data);
+  obj.syncToData = (data) => defaultSyncToData(obj, data);
 };
 
 const markDebug = (obj, config = { debugType: null }) => {
@@ -553,30 +562,32 @@ class MaterialManager {
     this.defaultTexture = defaultTexture;
     this.materials = {};
     this.uniforms = {};
-    this.data = {};
     markDebug(this);
     markDebug(this.uniforms);
-    this.syncFromData = () => {
-      for (const uniformName in this.data) {
-        const uniformData = Uniform.deserialize(this.data[uniformName]);
-        if (!this.uniforms[uniformName]) {
-          this.getUniform(uniformName, uniformData);
-        } else {
-          this.uniforms[uniformName].value = uniformData.value;
-        }
+
+    this.syncFromData = (data) => {
+      for (const uniformName in data) {
+        const uniformData = Uniform.deserialize(data[uniformName], {
+          defaultTexture: this.defaultTexture,
+        });
+        const uniform = this.getUniform(uniformName, uniformData);
+        console.log("sync data uniform", uniformName, uniform);
       }
     };
-    this.syncToData = () => {
+    this.syncToData = (data) => {
       for (const uniformName in this.uniforms) {
         if (!this.uniforms[uniformName].shouldSync) {
           continue;
         }
-        this.data[uniformName] = Uniform.serialize(this.uniforms[uniformName]);
+        data[uniformName] = Uniform.serialize(this.uniforms[uniformName]);
       }
     };
   }
 
   getUniform(name, data) {
+    if (this.uniforms[name]) {
+      return this.uniforms[name];
+    }
     const { uniformType } = data;
     if (!data.value) {
       data.value = Uniform.default(uniformType, {
@@ -656,6 +667,8 @@ class MaterialManager {
     }
     const material = new THREE.ShaderMaterial(materialParams);
     this.materials[name] = material;
+    console.log(material);
+    console.log(this.uniforms);
     return material;
   }
 }
@@ -683,30 +696,6 @@ const loadData = (data, manager) => {
   }
 };
 
-const exportData = (data, manager) => {
-  if (!manager || typeof manager !== "object") {
-    return;
-  }
-  // load data from manager
-  if ("exportD" in manager) {
-    data.data = manager.exportD();
-  }
-
-  for (const field in manager) {
-    if (!field.toLowerCase().match(/manager/)) {
-      continue;
-    }
-    // try adding a field
-    data[field] = {};
-    // we don't check if it implements an export function, because
-    // some sub-sub field might implement it instead
-    exportData(data[field], manager[field]);
-    if (Object.keys(data[field]).length === 0) {
-      delete data[field];
-    }
-  }
-};
-
 class DebugManager {
   constructor() {
     const gui = new GUI();
@@ -725,16 +714,11 @@ class DebugManager {
   // we don't want to accidently include 'this'.
   static updateGui(engine, gui, name) {
     // Update existing folders
-    console.log("length", gui.folders.length);
-
     const folderMap = new Map(gui.folders.map((f) => [f._title, f]));
     const folderNamesToDelete = [];
     for (const folder of gui.folders) {
       const folderName = folder._title;
-      console.log("folder", gui.folders);
-      console.log("folder", folder);
       if (!(folderName in engine) || !engine[folderName].debugConfig) {
-        console.log("deleting folder", folder);
         // Remove irrelevant
         folderNamesToDelete.push(folderName);
         continue;
@@ -747,10 +731,7 @@ class DebugManager {
       }
     }
 
-    console.log(JSON.stringify(folderNamesToDelete));
-
     folderNamesToDelete.forEach((folderName) => {
-      console.log(folderName);
       folderMap.get(folderName).destroy();
       folderMap.delete(folderName);
     });
@@ -784,14 +765,29 @@ class DebugManager {
       const { debugType } = engine.debugConfig;
       const existingController = gui.controllers.find((c) => c._name === name);
       if (existingController) {
-        //existingController.value = engine.value;
+        if (existingController.value !== engine.value) {
+          existingController.value = engine.value;
+        }
       } else {
         switch (debugType) {
           case "color":
-            gui.addColor(engine, "value").name(name);
+            gui
+              .addColor(engine, "value")
+              .name(name)
+              .onChange(() => {
+                console.log("changed", name, engine);
+              });
             break;
           default:
-            gui.add(engine, "value").name(name).min(-1).max(1).step(0.05);
+            gui
+              .add(engine, "value")
+              .name(name)
+              .onChange(() => {
+                console.log("changed", name, engine);
+              })
+              .min(-1)
+              .max(1)
+              .step(0.05);
             break;
         }
       }
@@ -801,14 +797,12 @@ class DebugManager {
 
 export class KubEngine {
   importData() {
-    this.data = gameData;
-    this.newData = newData;
-    loadData(this.newData, this);
+    this.syncFromData(newData);
   }
 
   exportData() {
     const data = {};
-    exportData(data, this);
+    this.syncToData(data);
     var link = document.createElement("a");
     const fileName = "data.json";
     var myFile = new Blob([JSON.stringify(data)], {
@@ -868,17 +862,16 @@ export class KubEngine {
     this.renderManager = renderManager;
     this.inputManager = inputManager;
 
-    this.importData();
     const debugManager = new DebugManager();
     this.debugManager = debugManager;
 
-    this.syncFromData();
+    this.importData();
     DebugManager.updateGui(this, this.debugManager.gui, "engine");
   }
 
   update() {
     this.renderManager.handleMouse(this.inputManager.mouseState);
-    DebugManager.updateGui(this, this.debugManager.gui, "engine");
+    console.log(this.renderManager.materialManager);
   }
 
   endLoop() {
