@@ -61,6 +61,36 @@ export const partition = (array, filterFn) => {
   return [pass, fail];
 };
 
+// what if everything has a data object
+// then you just call syncToData and syncFromData?
+// how does the debug menu know what is available?
+// just hooks into all data, I guess?
+
+const defaultSyncToData = (obj) => {
+  for (const fieldName in obj) {
+    if ("syncToData" in obj[fieldName]) {
+      obj[fieldName].syncToData(obj[fieldName]);
+    }
+  }
+};
+
+const defaultSyncFromData = (obj) => {
+  for (const fieldName in obj) {
+    if ("syncFromData" in obj[fieldName]) {
+      obj[fieldName].syncFromData(obj[fieldName]);
+    }
+  }
+};
+
+const addDefaultSync = (obj) => {
+  obj.syncFromData = () => defaultSyncFromData(obj);
+  obj.syncToData = () => defaultSyncToData(obj);
+};
+
+const markDebug = (obj, config = { debugObj: false }) => {
+  obj.debugConfig = config;
+};
+
 class FontManager {
   constructor(loadingManager) {
     this.fontLoader = new FontLoader(loadingManager);
@@ -312,7 +342,8 @@ class RenderManager {
     this.composer = composer;
     this.camera = camera;
     this.materialManager = materialManager;
-    this.isDebuggable = true;
+    addDefaultSync(this);
+    markDebug(this);
   }
 
   updateSize({ width, height }) {
@@ -444,49 +475,51 @@ class TimeManager {
 }
 
 class Uniform {
-  static deserialize = (data) => {
-    let value;
-    switch (data.uniformType) {
+  static deserializeValue = (data, { defaultTexture }) => {
+    const { uniformType } = data;
+    if (!data.value) {
+      return Uniform.default(uniformType, { defaultTexture });
+    }
+    switch (uniformType) {
       case "float":
       case "int":
       case "bool":
       case "vec2":
       case "vec3":
       case "vec4":
-        value = data.value;
-        break;
+        return data.value;
       case "color":
         const { r, g, b } = data.value;
-        value = new THREE.Color(r, g, b);
-        break;
+        return new THREE.Color(r, g, b);
       default:
-        throw new Error(`Dunno what to do here, ${data.uniformType}`);
+        throw new Error(`Dunno what to do here, ${uniformType}`);
     }
+  };
+
+  static deserialize = (data, { defaultTexture }) => {
+    const value = Uniform.deserializeValue(data, { defaultTexture });
     const uniform = new THREE.Uniform(value);
-    uniform.isDebuggable = true;
     uniform.uniformType = data.uniformType;
     return uniform;
   };
 
-  static serialize = (uniform) => {
-    let data = { uniformType: uniform.uniformType };
-    switch (uniform.uniformType) {
+  static serialize = ({ uniformType, value }) => {
+    let data = { uniformType: uniformType };
+    switch (uniformType) {
       case "float":
       case "int":
       case "bool":
       case "vec2":
       case "vec3":
       case "vec4":
-        data.value = uniform.value;
+        data.value = value;
         break;
       case "color":
-        const { r, g, b } = uniform.value;
+        const { r, g, b } = value;
         data.value = { r, g, b };
         break;
       default:
-        throw new Error(
-          `Dunno what to do here, ${uniform}, ${uniform.uniformType}`
-        );
+        throw new Error(`Dunno what to do here, ${value}, ${uniformType}`);
     }
     return data;
   };
@@ -519,67 +552,57 @@ class MaterialManager {
   constructor(defaultTexture) {
     this.defaultTexture = defaultTexture;
     this.materials = {};
-    this.uniforms = {
-      isDebuggable: true,
+    this.uniforms = {};
+    this.data = {};
+    markDebug(this);
+    markDebug(this.uniforms);
+    this.syncFromData = () => {
+      for (const uniformName in this.data) {
+        const uniformData = Uniform.deserialize(this.data[uniformName]);
+        if (!this.uniforms[uniformName]) {
+          this.getUniform(uniformName, uniformData);
+        } else {
+          this.uniforms[uniformName].value = uniformData.value;
+        }
+      }
     };
-    this.isDebuggable = true;
-  }
-
-  exportD() {
-    const data = {};
-    for (const uniformName in this.uniforms) {
-      const splitName = uniformName.split("_");
-      if (splitName[splitName.length - 1][0] !== "p") {
-        continue;
-      }
-      data[uniformName] = Uniform.serialize(this.uniforms[uniformName]);
-    }
-    return data;
-  }
-
-  load(data, config = { overwrite: true }) {
-    for (const uniform in data) {
-      const splitName = uniform.split("_");
-      if (splitName[splitName.length - 1][0] !== "p") {
-        continue;
-      }
-      const value = Uniform.deserialize(data[uniform]);
-      const existingValue = this.uniforms[uniform];
-      if (existingValue) {
-        if (config.overwrite) {
-          existingValue.value = value.value;
+    this.syncToData = () => {
+      for (const uniformName in this.uniforms) {
+        if (!this.uniforms[uniformName].shouldSync) {
+          continue;
         }
-      } else {
-        this.uniforms[uniform] = Uniform.deserialize(data[uniform]);
+        this.data[uniformName] = Uniform.serialize(this.uniforms[uniformName]);
       }
-    }
+    };
   }
 
-  updateUniforms(newUniforms) {
-    newUniforms.forEach((uniformType, uniformName) => {
-      const storedUniform = this.uniforms[uniformName];
-      if (storedUniform) {
-        // check that the types match. If they don't, error out.
-        if (storedUniform.uniformType !== uniformType) {
-          throw new Error(
-            `Uniform types don't match for ${uniformName}.
-             Stored uniform: ${storedUniform.uniformType},
-              new: ${uniformType}`
-          );
-        }
-        return;
-      }
-
-      // make a new uniform
-      let value = Uniform.default(uniformType, {
+  getUniform(name, data) {
+    const { uniformType } = data;
+    if (!data.value) {
+      data.value = Uniform.default(uniformType, {
         defaultTexture: this.defaultTexture,
       });
+    }
 
-      const customUniform = new THREE.Uniform(value);
-      customUniform.uniformType = uniformType;
-      customUniform.isDebuggable = true;
-      this.uniforms[uniformName] = customUniform;
-    });
+    const uniform = new THREE.Uniform(data.value);
+    console.log(name, uniform);
+    uniform.uniformType = uniformType;
+
+    // check debug criteria
+    const splitName = name.split("_");
+    const firstChar = splitName[splitName.length - 1][0];
+
+    if (firstChar === "p") {
+      markDebug(uniform, { debugObj: true });
+    }
+
+    // check persistent
+    if (firstChar === "p") {
+      uniform.shouldSync = true;
+    }
+
+    this.uniforms[name] = uniform;
+    return uniform;
   }
 
   addMaterial(
@@ -599,30 +622,24 @@ class MaterialManager {
     // We don't care where the uniforms are declared, just that they are.
     const megaShader = vertexShader + fragmentShader;
 
-    const uniforms = new Map();
-    [...megaShader.matchAll(uniformRe)].forEach((match) => {
-      // colors are vec3 in glsl, so if the variable name indicates
-      // color, we'll interpret it as that.
-      if (match[2].match(colorRe) && match[1] === "vec3") {
-        match[1] = "color";
-      }
-      const storedName = `${config.unique ? `${name}_` : ""}${match[2]}`;
-      uniforms.set(storedName, match[1]);
+    const uniforms = [...megaShader.matchAll(uniformRe)].map((match) => {
+      const [_, shaderType, shaderName] = match;
+      console.log(match);
+
+      const uniformName = config.unique ? `${name}_${shaderName}` : shaderName;
+      const uniformType =
+        shaderType === "vec3" && shaderName.match(colorRe)
+          ? "color"
+          : shaderType;
+
+      const uniform = this.getUniform(uniformName, { uniformType });
+      return [shaderName, uniform];
     });
-
-    this.updateUniforms(uniforms);
-
-    const storedUniforms = new Map(
-      [...uniforms.keys()].map((name) => {
-        const splitName = name.split("_");
-        return [splitName[splitName.length - 1], this.uniforms[name]];
-      })
-    );
 
     const materialParams = {
       vertexShader,
       fragmentShader,
-      uniforms: Object.fromEntries(storedUniforms),
+      uniforms: Object.fromEntries(uniforms),
     };
 
     for (const field in config) {
@@ -641,6 +658,7 @@ class MaterialManager {
     }
     const material = new THREE.ShaderMaterial(materialParams);
     this.materials[name] = material;
+    console.log(material);
     return material;
   }
 }
@@ -706,19 +724,19 @@ class DebugManager {
   }
 
   static setupGui(engine, gui) {
+    console.log(engine);
     for (const field in engine) {
-      if (!engine[field].isDebuggable) {
+      const fieldVal = engine[field];
+      if (!fieldVal.debugConfig) {
         continue;
       }
-      if (engine[field].value) {
-        const onChange = (newValue) => {
-          engine[field].value = newValue;
-        };
-        if (engine[field].uniformType === "color") {
-          gui.addColor(engine[field], "value").name(field).onChange(onChange);
+      const debug = fieldVal.debugConfig;
+      if (debug.debugObj) {
+        if (fieldVal.uniformType === "color") {
+          gui.addColor(fieldVal, "value").name(field).onChange(onChange);
         } else {
           gui
-            .add(engine[field], "value")
+            .add(fieldVal, "value")
             .name(field)
             .onChange(onChange)
             .min(-1)
@@ -726,8 +744,9 @@ class DebugManager {
             .step(0.05);
         }
       } else {
+        // Look for all children
         const folder = gui.addFolder(`${field}`);
-        this.setupGui(engine[field], folder);
+        this.setupGui(fieldVal, folder);
       }
     }
   }
@@ -756,6 +775,9 @@ export class KubEngine {
   }
 
   constructor() {
+    addDefaultSync(this);
+    markDebug(this);
+
     THREE.Cache.enabled = true;
     const loadingManager = new THREE.LoadingManager();
     loadingManager.hasFiles = false;
